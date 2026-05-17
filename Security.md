@@ -66,7 +66,7 @@ The migration defines RLS policies, private storage bucket policies, and pgvecto
 
 Required action:
 
-- Apply `supabase/migrations/0001_researchos.sql`, `supabase/migrations/0002_research_intelligence_workspace.sql`, `supabase/migrations/0003_entity_relationships_and_cache.sql`, `supabase/migrations/0004_production_hardening.sql`, and `supabase/migrations/0005_pdf_schema_alignment.sql` to the target Supabase project.
+- Apply `supabase/migrations/0001_researchos.sql`, `supabase/migrations/0002_research_intelligence_workspace.sql`, `supabase/migrations/0003_entity_relationships_and_cache.sql`, `supabase/migrations/0004_production_hardening.sql`, `supabase/migrations/0005_pdf_schema_alignment.sql`, and `supabase/migrations/0006_research_workspace_upgrade.sql` to the target Supabase project.
 - Confirm the `vector` extension is enabled.
 - Confirm the `research-documents` bucket is private.
 - Confirm authenticated users can only read/write rows where `user_id = auth.uid()`.

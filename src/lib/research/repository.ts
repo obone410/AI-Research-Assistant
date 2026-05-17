@@ -3,6 +3,7 @@ import { isSupabaseConfigured } from "@/lib/config";
 import { embedText, vectorLiteral } from "@/lib/ai/embeddings";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import {
+  addDemoCollectionNote,
   addDemoCollectionQa,
   addDemoHighlight,
   addDemoNote,
@@ -20,6 +21,7 @@ import {
   getDemoUsageAnalytics,
   listDemoProjects,
   listDemoCollections,
+  removeDemoCollectionDocument,
   saveDemoOutput,
   saveDemoKnowledge,
   saveDemoCachedQa,
@@ -31,6 +33,7 @@ import type {
   CachedQaResponse,
   CollectionDetail,
   CollectionDocument,
+  CollectionNote,
   CollectionQaMessage,
   DocumentEntity,
   DocumentChunk,
@@ -197,6 +200,17 @@ function mapCollectionDocument(row: DbRow): CollectionDocument {
       (row.file_name as string | undefined) ??
       nestedText(row, "documents", "file_name"),
     addedAt: row.added_at as string,
+  };
+}
+
+function mapCollectionNote(row: DbRow): CollectionNote {
+  return {
+    id: row.id as string,
+    collectionId: row.collection_id as string,
+    title: row.title as string,
+    body: row.body as string,
+    sourceType: row.source_type as string,
+    createdAt: row.created_at as string,
   };
 }
 
@@ -641,6 +655,7 @@ export async function getCollectionDetail(
   const [
     collectionResult,
     documentsResult,
+    notesResult,
     reportsResult,
     entitiesResult,
     documentEntitiesResult,
@@ -660,6 +675,11 @@ export async function getCollectionDetail(
       .select("*, research_projects(title), documents(file_name)")
       .eq("collection_id", collectionId)
       .order("added_at", { ascending: false }),
+    ctx.supabase
+      .from("collection_notes")
+      .select("*")
+      .eq("collection_id", collectionId)
+      .order("created_at", { ascending: false }),
     ctx.supabase
       .from("synthesis_reports")
       .select("*")
@@ -735,6 +755,7 @@ export async function getCollectionDetail(
   return {
     ...mapCollection(collectionResult.data),
     documents: (documentsResult.data ?? []).map(mapCollectionDocument),
+    notes: (notesResult.data ?? []).map(mapCollectionNote),
     reports: (reportsResult.data ?? []).map(mapSynthesisReport),
     entities: (entitiesResult.data ?? []).map(mapKnowledgeEntity),
     documentEntities: (documentEntitiesResult.data ?? []).map(mapDocumentEntity),
@@ -1466,6 +1487,88 @@ export async function addNote(
   }
 
   return mapNote(data);
+}
+
+export async function addCollectionNote(
+  ctx: ResearchContext,
+  collectionId: string,
+  body: string,
+  title?: string,
+) {
+  if (ctx.mode === "demo") {
+    return addDemoCollectionNote(collectionId, body, title);
+  }
+
+  const { data, error } = await ctx.supabase
+    .from("collection_notes")
+    .insert({
+      collection_id: collectionId,
+      user_id: ctx.user.id,
+      title: title || "Collection note",
+      body,
+      source_type: "manual",
+    })
+    .select("*")
+    .single();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  const note = mapCollectionNote(data);
+  await recordAction(ctx, {
+    action: "collection.note",
+    targetType: "collection",
+    targetId: collectionId,
+    metadata: { noteId: note.id },
+  });
+
+  return note;
+}
+
+export async function removeCollectionDocument(
+  ctx: ResearchContext,
+  collectionId: string,
+  input: {
+    linkId?: string | null;
+    projectId?: string | null;
+    documentId?: string | null;
+  },
+) {
+  if (ctx.mode === "demo") {
+    return removeDemoCollectionDocument(collectionId, input);
+  }
+
+  let query = ctx.supabase
+    .from("collection_documents")
+    .delete()
+    .eq("collection_id", collectionId)
+    .eq("user_id", ctx.user.id);
+
+  if (input.linkId) {
+    query = query.eq("id", input.linkId);
+  } else if (input.projectId) {
+    query = query.eq("project_id", input.projectId);
+  } else if (input.documentId) {
+    query = query.eq("document_id", input.documentId);
+  } else {
+    return false;
+  }
+
+  const { error } = await query;
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  await refreshCollectionCounts(ctx, collectionId);
+  await recordAction(ctx, {
+    action: "collection.remove_document",
+    targetType: "collection",
+    targetId: collectionId,
+    metadata: input,
+  });
+
+  return true;
 }
 
 export async function addHighlight(

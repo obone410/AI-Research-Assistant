@@ -5,6 +5,7 @@ import type {
   CachedQaResponse,
   CollectionDetail,
   CollectionDocument,
+  CollectionNote,
   CollectionQaMessage,
   DocumentEntity,
   EntityRelationship,
@@ -37,6 +38,7 @@ type DemoState = {
   outputs: StoredOutput[];
   collections: ResearchCollection[];
   collectionDocuments: CollectionDocument[];
+  collectionNotes: CollectionNote[];
   synthesisReports: SynthesisReport[];
   entities: KnowledgeEntity[];
   linkedInsights: LinkedInsight[];
@@ -158,6 +160,16 @@ function createSeedStore(): DemoState {
         projectTitle: project.title,
         fileName: project.documents[0]?.fileName ?? null,
         addedAt: now,
+      },
+    ],
+    collectionNotes: [
+      {
+        id: "demo-collection-note",
+        collectionId: collection.id,
+        title: "Collection research angle",
+        body: "Compare sources around retrieval, citations, and reusable research memory.",
+        sourceType: "manual",
+        createdAt: now,
       },
     ],
     synthesisReports: [],
@@ -317,6 +329,9 @@ export function getDemoCollection(collectionId: string): CollectionDetail {
     documents: store.collectionDocuments.filter(
       (item) => item.collectionId === collection.id,
     ),
+    notes: store.collectionNotes
+      .filter((item) => item.collectionId === collection.id)
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
     reports: store.synthesisReports
       .filter((item) => item.collectionId === collection.id)
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
@@ -395,6 +410,67 @@ export function attachDemoProjectToCollection(
   collection.updatedAt = new Date().toISOString();
 
   return link;
+}
+
+export function removeDemoCollectionDocument(
+  collectionId: string,
+  input: {
+    linkId?: string | null;
+    projectId?: string | null;
+    documentId?: string | null;
+  },
+) {
+  const store = getDemoStore();
+  const before = store.collectionDocuments.length;
+  store.collectionDocuments = store.collectionDocuments.filter((item) => {
+    if (item.collectionId !== collectionId) {
+      return true;
+    }
+
+    if (input.linkId) {
+      return item.id !== input.linkId;
+    }
+
+    if (input.projectId) {
+      return item.projectId !== input.projectId;
+    }
+
+    if (input.documentId) {
+      return item.documentId !== input.documentId;
+    }
+
+    return true;
+  });
+
+  const collection = store.collections.find((item) => item.id === collectionId);
+  if (collection) {
+    const count = store.collectionDocuments.filter(
+      (item) => item.collectionId === collectionId,
+    ).length;
+    collection.projectCount = count;
+    collection.documentCount = count;
+    collection.updatedAt = new Date().toISOString();
+  }
+
+  return store.collectionDocuments.length < before;
+}
+
+export function addDemoCollectionNote(
+  collectionId: string,
+  body: string,
+  title?: string,
+) {
+  const note: CollectionNote = {
+    id: randomUUID(),
+    collectionId,
+    title: title || "Collection note",
+    body,
+    sourceType: "manual",
+    createdAt: new Date().toISOString(),
+  };
+
+  getDemoStore().collectionNotes.unshift(note);
+  return note;
 }
 
 export function getDemoCollectionChunks(collectionId: string) {

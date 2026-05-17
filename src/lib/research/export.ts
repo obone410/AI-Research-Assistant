@@ -137,6 +137,13 @@ export function buildCollectionMarkdownReport(collection: CollectionDetail) {
     lines.push("");
   }
 
+  lines.push("## Collection Notes");
+  lines.push("");
+  for (const note of collection.notes) {
+    lines.push(`- **${note.title}:** ${note.body}`);
+  }
+
+  lines.push("");
   lines.push("## Linked Insights");
   lines.push("");
   for (const insight of collection.insights) {
@@ -198,6 +205,7 @@ export function buildCollectionJsonReport(collection: CollectionDetail) {
         createdAt: collection.createdAt,
       },
       documents: collection.documents,
+      notes: collection.notes,
       reports: collection.reports,
       entities: collection.entities,
       documentEntities: collection.documentEntities,

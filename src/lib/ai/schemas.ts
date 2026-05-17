@@ -96,6 +96,10 @@ export const synthesisReportKindSchema = z.enum([
   "executive_brief",
   "trend_analysis",
   "research_gaps",
+  "contradiction_analysis",
+  "opportunity_analysis",
+  "key_takeaways",
+  "recommendation_summary",
 ]);
 
 export const synthesisReportSchema = z.object({
@@ -111,6 +115,12 @@ export const synthesisReportSchema = z.object({
     }),
   ),
   overlappingIdeas: z.array(z.string()),
+  keyThemes: z.array(z.string()).default([]),
+  sharedClaims: z.array(z.string()).default([]),
+  conflictingPoints: z.array(z.string()).default([]),
+  recommendedNextQuestions: z.array(z.string()).default([]),
+  opportunities: z.array(z.string()).default([]),
+  keyTakeaways: z.array(z.string()).default([]),
   sourceTensions: z.array(
     z.object({
       topic: z.string(),

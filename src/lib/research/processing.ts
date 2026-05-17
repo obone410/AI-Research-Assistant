@@ -456,6 +456,10 @@ function reportTitle(kind: SynthesisReportKind, collectionName: string) {
     executive_brief: "Executive Brief",
     trend_analysis: "Trend Analysis",
     research_gaps: "Research Gaps",
+    contradiction_analysis: "Contradiction Analysis",
+    opportunity_analysis: "Opportunity Analysis",
+    key_takeaways: "Key Takeaways",
+    recommendation_summary: "Recommendation Summary",
   };
 
   return `${collectionName} ${label[kind]}`;

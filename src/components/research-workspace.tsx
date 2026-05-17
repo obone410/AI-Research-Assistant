@@ -99,6 +99,12 @@ type SynthesisOutput = {
     notableDifference: string;
   }>;
   overlappingIdeas?: string[];
+  keyThemes?: string[];
+  sharedClaims?: string[];
+  conflictingPoints?: string[];
+  recommendedNextQuestions?: string[];
+  opportunities?: string[];
+  keyTakeaways?: string[];
   sourceTensions?: Array<{
     topic: string;
     explanation: string;
@@ -144,8 +150,27 @@ function labelFromKind(kind: SynthesisReportKind) {
     executive_brief: "Executive Brief",
     trend_analysis: "Key Trends",
     research_gaps: "Research Gaps",
+    contradiction_analysis: "Contradictions",
+    opportunity_analysis: "Opportunities",
+    key_takeaways: "Key Takeaways",
+    recommendation_summary: "Recommendations",
   }[kind];
 }
+
+const coreReportKinds: SynthesisReportKind[] = [
+  "combined_summary",
+  "source_comparison",
+  "executive_brief",
+  "trend_analysis",
+  "research_gaps",
+];
+
+const analystReportKinds: SynthesisReportKind[] = [
+  "contradiction_analysis",
+  "opportunity_analysis",
+  "key_takeaways",
+  "recommendation_summary",
+];
 
 function confidenceClass(confidence?: string) {
   if (confidence === "high") {
@@ -246,6 +271,7 @@ export function ResearchWorkspace({
   const [collectionName, setCollectionName] = useState("");
   const [collectionDescription, setCollectionDescription] = useState("");
   const [noteDraft, setNoteDraft] = useState("");
+  const [collectionNoteDraft, setCollectionNoteDraft] = useState("");
   const [question, setQuestion] = useState("");
   const [collectionQuestion, setCollectionQuestion] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
@@ -448,7 +474,7 @@ export function ResearchWorkspace({
     }
   }
 
-  async function runSummary() {
+  async function runSummary(depth = summaryDepth) {
     if (!activeProject) {
       return;
     }
@@ -463,7 +489,7 @@ export function ResearchWorkspace({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           projectId: activeProject.id,
-          depth: summaryDepth,
+          depth,
         }),
       });
       await loadProject(activeProject.id);
@@ -588,6 +614,31 @@ export function ResearchWorkspace({
     }
   }
 
+  async function saveCollectionNote() {
+    if (!activeCollection || !collectionNoteDraft.trim()) {
+      return;
+    }
+
+    setBusyAction("collection-note");
+    setError("");
+
+    try {
+      await requestJson(`/api/collections/${activeCollection.id}/notes`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ body: collectionNoteDraft }),
+      });
+      setCollectionNoteDraft("");
+      await loadCollection(activeCollection.id);
+    } catch (nextError) {
+      setError(
+        nextError instanceof Error ? nextError.message : "Collection note failed.",
+      );
+    } finally {
+      setBusyAction(null);
+    }
+  }
+
   async function saveHighlight(chunk: DocumentChunk) {
     if (!activeProject) {
       return;
@@ -690,6 +741,29 @@ export function ResearchWorkspace({
       setWorkspaceView("collections");
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Attach failed.");
+    } finally {
+      setBusyAction(null);
+    }
+  }
+
+  async function removeCollectionSource(linkId: string) {
+    if (!activeCollection) {
+      return;
+    }
+
+    setBusyAction(`collection-remove-${linkId}`);
+    setError("");
+
+    try {
+      await requestJson(`/api/collections/${activeCollection.id}/documents`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ linkId }),
+      });
+      await loadCollections();
+      await loadCollection(activeCollection.id);
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "Remove failed.");
     } finally {
       setBusyAction(null);
     }
@@ -1108,7 +1182,7 @@ export function ResearchWorkspace({
                   </div>
                 </div>
 
-                <div className="grid gap-0 md:grid-cols-4">
+                <div className="grid gap-0 md:grid-cols-5">
                   <MetricTile label="Chunks" value={activeProject?.chunks.length ?? 0} />
                   <MetricTile label="Notes" value={activeProject?.notes.length ?? 0} />
                   <MetricTile label="Pinned" value={pinnedAnswers.length} />
@@ -1196,15 +1270,7 @@ export function ResearchWorkspace({
                     ) : null}
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    {(
-                      [
-                        "combined_summary",
-                        "source_comparison",
-                        "executive_brief",
-                        "trend_analysis",
-                        "research_gaps",
-                      ] as SynthesisReportKind[]
-                    ).map((kind) => (
+                    {[...coreReportKinds, ...analystReportKinds].map((kind) => (
                       <button
                         key={kind}
                         type="button"
@@ -1247,6 +1313,11 @@ export function ResearchWorkspace({
                     value={activeCollection?.claims.length ?? 0}
                     tone="amber"
                   />
+                  <MetricTile
+                    label="Notes"
+                    value={activeCollection?.notes.length ?? 0}
+                    tone="emerald"
+                  />
                 </div>
               </div>
 
@@ -1282,6 +1353,52 @@ export function ResearchWorkspace({
                             </p>
                           ))}
                         </div>
+                        {[
+                          ["Key Themes", latestSynthesis.keyThemes],
+                          ["Shared Claims", latestSynthesis.sharedClaims],
+                          ["Conflicting Points", latestSynthesis.conflictingPoints],
+                          ["Opportunities", latestSynthesis.opportunities],
+                          ["Key Takeaways", latestSynthesis.keyTakeaways],
+                          [
+                            "Recommended Next Questions",
+                            latestSynthesis.recommendedNextQuestions,
+                          ],
+                        ].some(([, items]) => (items as string[] | undefined)?.length) ? (
+                          <div className="grid gap-3 md:grid-cols-2">
+                            {[
+                              ["Key Themes", latestSynthesis.keyThemes],
+                              ["Shared Claims", latestSynthesis.sharedClaims],
+                              ["Conflicting Points", latestSynthesis.conflictingPoints],
+                              ["Opportunities", latestSynthesis.opportunities],
+                              ["Key Takeaways", latestSynthesis.keyTakeaways],
+                              [
+                                "Recommended Next Questions",
+                                latestSynthesis.recommendedNextQuestions,
+                              ],
+                            ].map(([label, items]) =>
+                              (items as string[] | undefined)?.length ? (
+                                <div
+                                  key={label as string}
+                                  className="border border-slate-200 bg-white p-3"
+                                >
+                                  <h4 className="text-sm font-semibold">
+                                    {label as string}
+                                  </h4>
+                                  <div className="mt-2 space-y-2">
+                                    {(items as string[]).map((item) => (
+                                      <p
+                                        key={item}
+                                        className="text-sm leading-5 text-slate-700"
+                                      >
+                                        {item}
+                                      </p>
+                                    ))}
+                                  </div>
+                                </div>
+                              ) : null,
+                            )}
+                          </div>
+                        ) : null}
                         <div className="grid gap-3 md:grid-cols-2">
                           {(latestSynthesis.sourceComparisons ?? []).map((item) => (
                             <article
@@ -1326,19 +1443,33 @@ export function ResearchWorkspace({
                   </div>
                   <div className="max-h-[34rem] overflow-auto">
                     {activeCollection?.documents.map((document) => (
-                      <button
+                      <article
                         key={document.id}
-                        type="button"
-                        onClick={() => loadProject(document.projectId)}
-                        className="block w-full border-b border-slate-200 px-4 py-3 text-left text-sm hover:bg-slate-50"
+                        className="border-b border-slate-200 px-4 py-3 text-sm"
                       >
-                        <span className="block font-medium">
-                          {document.projectTitle}
-                        </span>
-                        <span className="mt-1 block text-xs text-slate-500">
-                          {document.fileName ?? "Document"} - {formatDate(document.addedAt)}
-                        </span>
-                      </button>
+                        <div className="flex items-start justify-between gap-3">
+                          <button
+                            type="button"
+                            onClick={() => loadProject(document.projectId)}
+                            className="min-w-0 text-left hover:text-sky-700"
+                          >
+                            <span className="block font-medium">
+                              {document.projectTitle}
+                            </span>
+                            <span className="mt-1 block text-xs text-slate-500">
+                              {document.fileName ?? "Document"} - {formatDate(document.addedAt)}
+                            </span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => removeCollectionSource(document.id)}
+                            disabled={busyAction === `collection-remove-${document.id}`}
+                            className="shrink-0 border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-600 disabled:opacity-50"
+                          >
+                            {busyAction === `collection-remove-${document.id}` ? "Removing" : "Remove"}
+                          </button>
+                        </div>
+                      </article>
                     ))}
                     {!activeCollection?.documents.length ? (
                       <EmptyState title="Attach projects to compare sources." />
@@ -1757,7 +1888,7 @@ export function ResearchWorkspace({
                     </select>
                     <button
                       type="button"
-                      onClick={runSummary}
+                      onClick={() => void runSummary()}
                       disabled={!activeProject || busyAction === "summary"}
                       className="inline-flex items-center gap-2 bg-slate-950 px-3 py-2 text-sm font-semibold text-white disabled:opacity-50"
                     >
@@ -1781,6 +1912,29 @@ export function ResearchWorkspace({
                     >
                       <KeyRound className="h-4 w-4" />
                       Keywords
+                    </button>
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSummaryDepth("executive");
+                        void runSummary("executive");
+                      }}
+                      disabled={!activeProject || busyAction === "summary"}
+                      className="inline-flex items-center justify-center gap-2 border border-slate-300 px-3 py-2 text-sm font-semibold disabled:opacity-50"
+                    >
+                      <WandSparkles className="h-4 w-4" />
+                      Executive brief
+                    </button>
+                    <button
+                      type="button"
+                      onClick={runInsights}
+                      disabled={!activeProject || busyAction === "insights"}
+                      className="inline-flex items-center justify-center gap-2 border border-slate-300 px-3 py-2 text-sm font-semibold disabled:opacity-50"
+                    >
+                      <GitCompareArrows className="h-4 w-4" />
+                      Risks, gaps, contradictions
                     </button>
                   </div>
 
@@ -1948,12 +2102,14 @@ export function ResearchWorkspace({
                       {message.citations.length ? (
                         <div className="mt-3 space-y-1">
                           {message.citations.slice(0, 3).map((citation) => (
-                            <p
+                            <button
                               key={`${message.id}-${citation.chunkIndex}-${citation.quote}`}
-                              className="border-l-2 border-sky-600 bg-white px-2 py-1 text-xs leading-5 text-slate-600"
+                              type="button"
+                              onClick={() => openCitation(citation)}
+                              className="block w-full border-l-2 border-sky-600 bg-white px-2 py-1 text-left text-xs leading-5 text-slate-600"
                             >
                               Chunk {citation.chunkIndex}: {citation.quote}
-                            </p>
+                            </button>
                           ))}
                         </div>
                       ) : null}
@@ -2022,6 +2178,27 @@ export function ResearchWorkspace({
                   </button>
                   <button
                     type="button"
+                    onClick={() => runCollectionReport("source_comparison")}
+                    disabled={!activeCollection || busyAction === "collection-source_comparison"}
+                    className="inline-flex w-full items-center justify-center gap-2 border border-slate-300 px-3 py-2 text-sm font-semibold disabled:opacity-50"
+                  >
+                    <GitCompareArrows className="h-4 w-4" />
+                    Compare Documents
+                  </button>
+                  {analystReportKinds.map((kind) => (
+                    <button
+                      key={kind}
+                      type="button"
+                      onClick={() => runCollectionReport(kind)}
+                      disabled={!activeCollection || busyAction === `collection-${kind}`}
+                      className="inline-flex w-full items-center justify-center gap-2 border border-slate-300 px-3 py-2 text-sm font-semibold disabled:opacity-50"
+                    >
+                      <WandSparkles className="h-4 w-4" />
+                      {labelFromKind(kind)}
+                    </button>
+                  ))}
+                  <button
+                    type="button"
                     onClick={runKnowledgeExtraction}
                     disabled={!activeCollection || busyAction === "collection-knowledge"}
                     className="inline-flex w-full items-center justify-center gap-2 border border-slate-300 px-3 py-2 text-sm font-semibold disabled:opacity-50"
@@ -2047,6 +2224,52 @@ export function ResearchWorkspace({
                     <ArrowDownToLine className="h-4 w-4" />
                     JSON Export
                   </button>
+                </div>
+              </section>
+
+              <section className="border border-slate-300 bg-white">
+                <div className="border-b border-slate-200 px-4 py-3">
+                  <h2 className="flex items-center gap-2 font-semibold">
+                    <NotebookPen className="h-4 w-4 text-emerald-700" />
+                    Collection Notes
+                  </h2>
+                </div>
+                <div className="space-y-3 p-3">
+                  <textarea
+                    value={collectionNoteDraft}
+                    onChange={(event) => setCollectionNoteDraft(event.target.value)}
+                    className="min-h-24 w-full border border-slate-300 p-3 text-sm outline-none focus:border-emerald-700"
+                    placeholder="Capture a cross-document note"
+                  />
+                  <button
+                    type="button"
+                    onClick={saveCollectionNote}
+                    disabled={
+                      !activeCollection ||
+                      !collectionNoteDraft.trim() ||
+                      busyAction === "collection-note"
+                    }
+                    className="inline-flex w-full items-center justify-center gap-2 border border-slate-300 px-3 py-2 text-sm font-semibold disabled:opacity-50"
+                  >
+                    <NotebookPen className="h-4 w-4" />
+                    Save collection note
+                  </button>
+                  <div className="space-y-2">
+                    {activeCollection?.notes.slice(0, 5).map((note) => (
+                      <article
+                        key={note.id}
+                        className="border border-slate-200 bg-slate-50 p-3"
+                      >
+                        <p className="text-sm font-semibold">{note.title}</p>
+                        <p className="mt-1 text-sm leading-5 text-slate-700">
+                          {note.body}
+                        </p>
+                      </article>
+                    ))}
+                    {!activeCollection?.notes.length ? (
+                      <EmptyState title="Save notes for this collection." />
+                    ) : null}
+                  </div>
                 </div>
               </section>
 

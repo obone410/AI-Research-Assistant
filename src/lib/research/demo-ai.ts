@@ -191,6 +191,31 @@ export function demoSynthesis(
       "Structured outputs make findings reusable across reports and notes.",
       "Citations improve confidence and make AI outputs easier to verify.",
     ],
+    keyThemes: [
+      "Citation-first research workflows",
+      "Reusable knowledge extraction",
+      "Cost-aware retrieval and summarization",
+    ],
+    sharedClaims: [
+      "Research outputs become more valuable when they are saved as reusable assets.",
+      "Selective retrieval reduces redundant context and keeps answers grounded.",
+    ],
+    conflictingPoints: [
+      "Fast executive summaries can trade off against slower source-by-source comparison.",
+    ],
+    recommendedNextQuestions: [
+      "Which extracted claims should become saved notes?",
+      "Where do the uploaded sources disagree most strongly?",
+      "Which themes should be exported into the final briefing?",
+    ],
+    opportunities: [
+      "Use collections as reusable research rooms for market maps and diligence notes.",
+      "Turn recurring entity clusters into saved research views.",
+    ],
+    keyTakeaways: [
+      "ResearchOS should feel like a workflow system, not a one-off summarizer.",
+      "Collection synthesis is strongest when source citations stay visible.",
+    ],
     sourceTensions: [
       {
         topic: "Depth versus speed",

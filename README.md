@@ -12,6 +12,7 @@ ResearchOS is a portfolio-grade AI research intelligence workspace built with Ne
 - Demo AI fallback when provider keys are not configured.
 - Multi-document collections with unified reports, source comparisons, executive briefs, trend analysis, and research gap workflows.
 - Knowledge extraction for entities, linked insights, and source-backed claims.
+- Collection notes, source removal, contradiction analysis, opportunity analysis, key takeaways, and recommendation summaries.
 - Usage analytics for token estimates, provider mix, processing time, and retrieval efficiency.
 - Persistent Supabase-backed rate limits and action records when the service role key is configured.
 - Research workspace UI with document viewer, notes, highlights, pinned answers, collection chat, command palette, and Markdown/JSON exports.
@@ -57,12 +58,16 @@ erDiagram
     research_projects ||--o{ documents : contains
     research_projects ||--o{ research_runs : executes
     research_collections ||--o{ collection_documents : includes
+    research_collections ||--o{ collection_notes : captures
     research_collections }o--|| research_projects : owner_project
     documents ||--o{ document_chunks : has
     documents ||--o{ document_entities : mentions
+    documents ||--o{ entity_documents : maps
     document_entities }o--|| knowledge_entities : is
+    entity_documents }o--|| knowledge_entities : is
     knowledge_entities ||--o{ entity_relationships : relates
     research_runs ||--o{ research_steps : consists_of
+    research_runs ||--o{ research_run_steps : tracks
     collection_documents }o--|| documents : doc
 ```
 
@@ -132,6 +137,8 @@ Apply the migrations in `supabase/migrations` in order. `0001_researchos.sql` cr
 
 `0005_pdf_schema_alignment.sql` adds the PDF-requested `owner_project_id` relationship plus `research_runs` and `research_steps` compatibility views.
 
+`0006_research_workspace_upgrade.sql` adds `collection_notes`, expands synthesis report kinds, and exposes `entity_documents` / `research_run_steps` compatibility views.
+
 ## API Routes
 
 - `POST /api/upload-document`
@@ -149,7 +156,10 @@ Apply the migrations in `supabase/migrations` in order. `0001_researchos.sql` cr
 - `POST /api/collections`
 - `GET /api/collections/:id`
 - `POST /api/collections/:id/documents`
+- `DELETE /api/collections/:id/documents`
 - `POST /api/collections/:id/add-document`
+- `DELETE /api/collections/:id/add-document`
+- `POST /api/collections/:id/notes`
 - `POST /api/collections/:id/synthesize`
 - `POST /api/collections/:id/knowledge`
 - `POST /api/collections/:id/chat`

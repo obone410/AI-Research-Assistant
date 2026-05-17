@@ -37,6 +37,7 @@ The application has four runtime layers:
 - `supabase/migrations/0003_entity_relationships_and_cache.sql`: document-to-entity links, concept relationships, and reusable Q&A cache.
 - `supabase/migrations/0004_production_hardening.sql`: persistent API rate-limit buckets, action records, and `check_rate_limit(...)`.
 - `supabase/migrations/0005_pdf_schema_alignment.sql`: PDF-aligned `owner_project_id` and compatibility views for `research_runs` and `research_steps`.
+- `supabase/migrations/0006_research_workspace_upgrade.sql`: collection notes, expanded analyst report kinds, and compatibility views for `entity_documents` and `research_run_steps`.
 
 ## Storage Model
 
@@ -52,9 +53,11 @@ Supabase tables:
 - `research_exports`
 - `research_collections`
 - `collection_documents`
+- `collection_notes`
 - `synthesis_reports`
 - `knowledge_entities`
 - `document_entities`
+- `entity_documents` compatibility view over `document_entities`
 - `entity_relationships`
 - `linked_insights`
 - `research_claims`
@@ -63,6 +66,7 @@ Supabase tables:
 - `research_pipeline_steps`
 - `research_runs` compatibility view over `research_pipeline_runs`
 - `research_steps` compatibility view over `research_pipeline_steps`
+- `research_run_steps` compatibility view over `research_pipeline_steps`
 - `ai_usage_metrics`
 - `saved_research_views`
 - `qa_response_cache`
@@ -88,12 +92,16 @@ erDiagram
     research_projects ||--o{ documents : contains
     research_projects ||--o{ research_runs : executes
     research_collections ||--o{ collection_documents : includes
+    research_collections ||--o{ collection_notes : captures
     research_collections }o--|| research_projects : owner_project
     documents ||--o{ document_chunks : has
     documents ||--o{ document_entities : mentions
+    documents ||--o{ entity_documents : maps
     document_entities }o--|| knowledge_entities : is
+    entity_documents }o--|| knowledge_entities : is
     knowledge_entities ||--o{ entity_relationships : relates
     research_runs ||--o{ research_steps : consists_of
+    research_runs ||--o{ research_run_steps : tracks
     collection_documents }o--|| documents : doc
 ```
 
@@ -127,12 +135,14 @@ Compatibility routes:
 
 - `POST /api/collections/:id/add-document` aliases the implemented document attachment route.
 - `POST /api/collections/:id/documents` accepts either `projectId` or `documentId`.
+- `DELETE /api/collections/:id/documents` and `DELETE /api/collections/:id/add-document` remove a source from a collection.
+- `POST /api/collections/:id/notes` saves cross-document collection notes.
 - `GET /api/entities?query=...` searches entities across the workspace.
 - `GET /api/entities?collectionId=...&query=...` searches inside one collection.
 
 ## PDF Implementation Coverage
 
-- Multi-document collections: `research_collections`, `collection_documents`, `synthesis_reports`, collection dashboard, synthesis routes, and collection chat.
+- Multi-document collections: `research_collections`, `collection_documents`, `collection_notes`, `synthesis_reports`, collection dashboard, source removal, synthesis routes, and collection chat.
 - Knowledge layer: `knowledge_entities`, `document_entities`, `entity_relationships`, linked insights, claims, entity list, and entity detail route.
 - Citation tracing: structured citation objects include chunk, document, project, quote, confidence, and UI jump targets.
 - Workflow visibility: `research_pipeline_runs`, `research_pipeline_steps`, progress UI, and PDF-aligned `research_runs` / `research_steps` views.

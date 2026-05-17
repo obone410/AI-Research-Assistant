@@ -85,6 +85,16 @@ const collection: CollectionDetail = {
       addedAt: "2026-05-16T00:00:00.000Z",
     },
   ],
+  notes: [
+    {
+      id: "collection-note-1",
+      collectionId: "collection-1",
+      title: "Synthesis note",
+      body: "Compare overlapping source claims.",
+      sourceType: "manual",
+      createdAt: "2026-05-16T00:00:00.000Z",
+    },
+  ],
   reports: [
     {
       id: "report-1",
@@ -196,6 +206,7 @@ describe("report export", () => {
 
     expect(markdown).toContain("# AI Research Collection");
     expect(markdown).toContain("Unified report");
+    expect(markdown).toContain("Synthesis note");
     expect(markdown).toContain("ResearchOS");
     expect(markdown).toContain("Concept Links");
   });

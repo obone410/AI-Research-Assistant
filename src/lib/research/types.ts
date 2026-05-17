@@ -118,12 +118,25 @@ export type CollectionDocument = {
   addedAt: string;
 };
 
+export type CollectionNote = {
+  id: string;
+  collectionId: string;
+  title: string;
+  body: string;
+  sourceType: string;
+  createdAt: string;
+};
+
 export type SynthesisReportKind =
   | "combined_summary"
   | "source_comparison"
   | "executive_brief"
   | "trend_analysis"
-  | "research_gaps";
+  | "research_gaps"
+  | "contradiction_analysis"
+  | "opportunity_analysis"
+  | "key_takeaways"
+  | "recommendation_summary";
 
 export type SynthesisReport = {
   id: string;
@@ -269,6 +282,7 @@ export type UsageAnalytics = {
 
 export type CollectionDetail = ResearchCollection & {
   documents: CollectionDocument[];
+  notes: CollectionNote[];
   reports: SynthesisReport[];
   entities: KnowledgeEntity[];
   documentEntities: DocumentEntity[];
