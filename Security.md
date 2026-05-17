@@ -13,6 +13,7 @@ ResearchOS is designed as a portfolio-grade AI SaaS application with authenticat
 - Uploaded files are limited by file type, file size, extracted text size, and chunk count.
 - OpenAI embedding failures fall back to lexical retrieval instead of blocking uploads.
 - Provider quota or credit errors fall back gracefully so workflows do not crash.
+- PostCSS is pinned through npm overrides to the patched `8.5.14` release used by Next.js at install time.
 - Real API keys are stored only in local ignored env files or encrypted Vercel environment variables.
 
 ## Data Boundaries
@@ -40,7 +41,7 @@ The recruiter account in the README is a shared demo user. It should be used onl
 - Public shared demo accounts are convenient for review but are not appropriate for private research data.
 - AI provider output should be treated as assistive, not authoritative; cited source excerpts should be reviewed.
 - Provider quota limits may trigger deterministic fallback outputs until the provider account has available credits.
-- Dependency advisories should be reviewed regularly with `npm audit --omit=dev`.
+- Dependency advisories should continue to be reviewed regularly with `npm audit --omit=dev`.
 
 ## Verification Checklist
 
