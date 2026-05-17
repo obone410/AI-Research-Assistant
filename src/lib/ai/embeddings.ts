@@ -10,13 +10,17 @@ export async function embedTexts(texts: string[]) {
     return texts.map(() => null);
   }
 
-  const openai = new OpenAI({ apiKey: serverConfig.openAiApiKey });
-  const response = await openai.embeddings.create({
-    model: serverConfig.openAiEmbeddingModel,
-    input: texts,
-  });
+  try {
+    const openai = new OpenAI({ apiKey: serverConfig.openAiApiKey });
+    const response = await openai.embeddings.create({
+      model: serverConfig.openAiEmbeddingModel,
+      input: texts,
+    });
 
-  return response.data.map((item) => item.embedding);
+    return response.data.map((item) => item.embedding);
+  } catch {
+    return texts.map(() => null);
+  }
 }
 
 export async function embedText(text: string) {

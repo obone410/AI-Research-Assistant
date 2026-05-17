@@ -12,7 +12,7 @@ export const serverConfig = {
   openAiEmbeddingModel:
     process.env.OPENAI_EMBEDDING_MODEL ?? "text-embedding-3-small",
   anthropicApiKey: process.env.ANTHROPIC_API_KEY ?? "",
-  anthropicModel: process.env.ANTHROPIC_MODEL ?? "claude-3-5-sonnet-latest",
+  anthropicModel: process.env.ANTHROPIC_MODEL ?? "claude-sonnet-4-6",
   aiProvider:
     process.env.AI_PROVIDER === "anthropic" ? "anthropic" : "openai",
   demoMode: process.env.DEMO_MODE === "true",
