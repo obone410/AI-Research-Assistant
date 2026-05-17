@@ -68,7 +68,33 @@ function chunksHash(chunks: DocumentChunk[], suffix = "") {
 }
 
 function shouldUseDemoFallback(error: unknown) {
-  return shouldUseDemoAi() || error instanceof AiProviderUnavailableError;
+  if (
+    shouldUseDemoAi() ||
+    error instanceof AiProviderUnavailableError ||
+    error instanceof SyntaxError ||
+    error instanceof z.ZodError
+  ) {
+    return true;
+  }
+
+  const status =
+    typeof (error as { status?: unknown }).status === "number"
+      ? ((error as { status: number }).status)
+      : undefined;
+  if (status && [400, 401, 403, 429, 500, 529].includes(status)) {
+    return true;
+  }
+
+  const message =
+    error instanceof Error ? error.message.toLowerCase() : String(error);
+  return [
+    "quota",
+    "credit balance",
+    "rate limit",
+    "overloaded",
+    "invalid_request_error",
+    "api key",
+  ].some((needle) => message.includes(needle));
 }
 
 function citationFromChunk(chunk: DocumentChunk | RetrievalHit): Citation {
