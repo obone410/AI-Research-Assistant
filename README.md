@@ -106,8 +106,3 @@ npm run build
 ```
 
 The current suite covers chunking, prompt rendering, Zod output contracts, and export formatting.
-
-## Design And Security Docs
-
-- `architecture.md`
-- `Security.md`
