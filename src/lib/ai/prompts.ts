@@ -122,11 +122,13 @@ Retrieved context:
     version: "v1",
     description: "Create a multi-source research report from selected chunks.",
     temperature: 0.22,
-    maxTokens: 2200,
+    maxTokens: 3600,
     template: `You are ResearchOS, an AI-native research workspace.
 Synthesize the collection context into a reusable research artifact. Compare sources,
 identify overlapping ideas, call out source tensions, preserve citations, and add
 research reasoning signals that help the user decide what to investigate next.
+Keep output compact: each array should contain 2-4 high-signal items unless the
+schema requires fewer, and every string should be concise.
 
 Return only JSON:
 {
@@ -175,9 +177,10 @@ Context:
     version: "v1",
     description: "Extract entities, linked insights, and claims from a collection.",
     temperature: 0.12,
-    maxTokens: 1900,
+    maxTokens: 3000,
     template: `You are ResearchOS. Extract structured research knowledge from the context.
 Focus on people, organizations, technologies, concepts, topics, important claims, and source-backed insights.
+Keep output compact: return 4-8 entities, 3-5 linked insights, 3-5 claims, and 3-5 relationships.
 
 Return only JSON:
 {
