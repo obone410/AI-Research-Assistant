@@ -1,27 +1,34 @@
 # ResearchOS
 
-ResearchOS is a portfolio-grade AI research intelligence workspace built with Next.js, Supabase, and server-side AI provider integrations. It ingests documents, chunks and stores source text, retrieves relevant context, generates structured research outputs, supports cited Q&A, synthesizes across collections, and exports reusable research artifacts.
+ResearchOS is an AI research intelligence workspace built with Next.js, Supabase, pgvector, and server-side OpenAI / Claude provider integrations. It turns uploaded PDFs, TXT files, and DOCX documents into cited summaries, cross-document reports, structured knowledge, research notes, and exportable research artifacts.
 
-## Features
+## Live Demo
 
-- PDF, TXT, and DOCX ingestion with raw text extraction.
-- Supabase Auth, Storage, Postgres metadata, and pgvector retrieval.
-- Token-aware chunking, content hashing, caching, and selective context injection.
-- Reusable prompt templates for summaries, insights, keywords, and Q&A.
-- OpenAI primary provider with optional Claude abstraction.
-- Demo AI fallback when provider keys are not configured.
-- Multi-document collections with unified reports, source comparisons, executive briefs, trend analysis, and research gap workflows.
-- Knowledge extraction for entities, linked insights, and source-backed claims.
-- Collection notes, source removal, contradiction analysis, opportunity analysis, key takeaways, and recommendation summaries.
-- Interactive D3 knowledge graph with zoom, pan, entity inspection, relationship strength, and related source views.
-- Advanced reasoning reports for confidence, hypotheses, claim validation, evidence summaries, strategic insights, analytical briefings, and collection comparisons.
-- Improved RAG retrieval with query rewriting, hybrid reranking, duplicate reduction, and contextual compression.
-- Proactive research intelligence dashboard with suggested questions, contradiction alerts, trending concepts, activity timeline, and saved research sessions.
-- Usage analytics for token estimates, provider mix, processing time, and retrieval efficiency.
-- Persistent Supabase-backed rate limits and action records when the service role key is configured.
-- Research workspace UI with document viewer, notes, highlights, pinned answers, collection chat, command palette, and Markdown/JSON exports.
+Demo URL: https://ai-research-assistant-liart.vercel.app
 
-## Architecture Schematic
+Recruiter login:
+
+```text
+Username: recruiter@researchos.dev
+Password: ResearchOS-Demo-2026!
+```
+
+This is a shared demo account for portfolio review. Do not upload confidential documents. You can also create a separate account from the sign-up screen.
+
+## What It Does
+
+- Upload PDFs, TXT, and DOCX files.
+- Extract and chunk document text with token-aware limits.
+- Store documents, chunks, notes, reports, and research memory in Supabase.
+- Retrieve relevant chunks with pgvector when embeddings are available, with lexical fallback when provider quota is unavailable.
+- Generate summaries, insights, keywords, cited Q&A, and Markdown / JSON exports.
+- Group documents into research collections for multi-document comparison.
+- Generate unified reports, source comparisons, executive briefs, research gaps, trends, opportunities, and recommendations.
+- Extract entities, claims, linked insights, and relationships into an interactive knowledge graph.
+- Show research pipeline status, usage analytics, provider mix, retrieval efficiency, and saved research sessions.
+- Keep all AI calls server-side with Zod-validated output contracts.
+
+## Architecture
 
 ```mermaid
 flowchart LR
@@ -36,25 +43,23 @@ flowchart LR
     Export --> API
 
     API --> Validate["Zod Validation + Rate Limits"]
-    Validate --> Parse["PDF / TXT / DOCX Text Extraction"]
-    Parse --> Chunk["Token-Aware Chunking + Hash Cache"]
+    Validate --> Parse["PDF / TXT / DOCX Extraction"]
+    Parse --> Chunk["Chunking + Hash Cache"]
     Chunk --> Storage["Supabase Storage"]
     Chunk --> Postgres["Supabase Postgres"]
-    Postgres --> Vector["pgvector Chunk Retrieval"]
+    Postgres --> Vector["pgvector Retrieval"]
 
     API --> Prompts["Prompt Templates"]
-    Prompts --> Provider["OpenAI / Claude Provider Layer"]
+    Prompts --> Provider["OpenAI / Claude Layer"]
     Provider --> Outputs["Validated AI Outputs"]
     Vector --> Outputs
 
-    Outputs --> Summary["Summaries / Insights / Keywords"]
+    Outputs --> Summary["Summaries / Keywords / Insights"]
     Outputs --> QA["Cited Q&A"]
     Outputs --> Synthesis["Multi-Document Synthesis"]
     Outputs --> Knowledge["Entities / Claims / Relationships"]
     Knowledge --> Graph["Interactive Knowledge Graph"]
-    Outputs --> Reasoning["Confidence / Hypotheses / Evidence Reports"]
-    Outputs --> Sessions["Saved Research Sessions"]
-    Outputs --> Analytics["Usage Analytics + Action Records"]
+    Outputs --> Analytics["Usage Analytics"]
 ```
 
 ## Database Schema
@@ -80,6 +85,18 @@ erDiagram
     collection_documents }o--|| documents : doc
 ```
 
+## Stack
+
+- Next.js App Router
+- React 19
+- TypeScript
+- Tailwind CSS
+- Supabase Auth, Storage, Postgres, and pgvector
+- OpenAI embeddings / chat support
+- Anthropic Claude chat support
+- Zod validation
+- Vitest
+
 ## Local Setup
 
 ```bash
@@ -88,101 +105,40 @@ Copy-Item .env.example .env.local
 npm run dev
 ```
 
-Live demo: https://ai-research-assistant-liart.vercel.app
-
-If Supabase env vars are absent, the app runs with an in-memory demo workspace. If AI keys are absent or `DEMO_MODE=true`, AI routes return deterministic demo outputs while preserving the same API contracts.
-
-## Environment
+Required environment variables:
 
 ```bash
 NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_ANON_KEY=
 SUPABASE_SERVICE_ROLE_KEY=
 SUPABASE_SECRET_KEY=
+
 OPENAI_API_KEY=
 OPENAI_CHAT_MODEL=gpt-4o-mini
 OPENAI_EMBEDDING_MODEL=text-embedding-3-small
+
 ANTHROPIC_API_KEY=
 ANTHROPIC_MODEL=claude-sonnet-4-6
-AI_PROVIDER=openai
+AI_PROVIDER=anthropic
+
 DEMO_MODE=false
 ```
 
-Never commit real API keys. If a key has been pasted into chat or logs, rotate it before deploying.
+Never commit real API keys. Production secrets should be configured in Vercel environment variables.
 
-## Supabase
+## Supabase Setup
 
-Apply the migrations in `supabase/migrations` in order. `0001_researchos.sql` creates:
+Apply the migrations in `supabase/migrations` in order:
 
-- `research_projects`
-- `documents`
-- `document_chunks` with `vector(1536)` embeddings
-- `ai_outputs`
-- `research_notes`
-- `highlights`
-- `qa_messages`
-- `research_exports`
-- `match_document_chunks(...)` RPC for pgvector search
-- private `research-documents` storage bucket policies
+- `0001_researchos.sql`
+- `0002_research_intelligence_workspace.sql`
+- `0003_entity_relationships_and_cache.sql`
+- `0004_production_hardening.sql`
+- `0005_pdf_schema_alignment.sql`
+- `0006_research_workspace_upgrade.sql`
+- `0007_interactive_research_intelligence.sql`
 
-`0002_research_intelligence_workspace.sql` adds:
-
-- `research_collections`
-- `collection_documents`
-- `synthesis_reports`
-- `knowledge_entities`
-- `document_entities`
-- `entity_relationships`
-- `linked_insights`
-- `research_claims`
-- `collection_qa_messages`
-- `research_pipeline_runs`
-- `research_pipeline_steps`
-- `ai_usage_metrics`
-- `saved_research_views`
-
-`0003_entity_relationships_and_cache.sql` adds document-to-entity links, concept relationships, and a reusable Q&A cache for repeated project or collection questions.
-
-`0004_production_hardening.sql` adds persistent API rate-limit buckets, action records for important research operations, and the `check_rate_limit(...)` RPC used by server routes.
-
-`0005_pdf_schema_alignment.sql` adds the PDF-requested `owner_project_id` relationship plus `research_runs` and `research_steps` compatibility views.
-
-`0006_research_workspace_upgrade.sql` adds `collection_notes`, expands synthesis report kinds, and exposes `entity_documents` / `research_run_steps` compatibility views.
-
-`0007_interactive_research_intelligence.sql` expands advanced reasoning report kinds and adds `research_sessions` plus `research_session_findings` for persistent investigation memory.
-
-## API Routes
-
-- `POST /api/upload-document`
-- `POST /api/summarize`
-- `POST /api/extract-insights`
-- `POST /api/generate-keywords`
-- `POST /api/chat-document`
-- `POST /api/export-report`
-- `GET /api/projects`
-- `GET /api/projects/:id`
-- `POST /api/projects/:id/notes`
-- `POST /api/projects/:id/highlights`
-- `POST /api/projects/:id/pins`
-- `GET /api/collections`
-- `POST /api/collections`
-- `GET /api/collections/:id`
-- `POST /api/collections/:id/documents`
-- `DELETE /api/collections/:id/documents`
-- `POST /api/collections/:id/add-document`
-- `DELETE /api/collections/:id/add-document`
-- `POST /api/collections/:id/notes`
-- `POST /api/collections/:id/synthesize`
-- `POST /api/collections/:id/knowledge`
-- `POST /api/collections/:id/chat`
-- `GET /api/collections/:id/sessions`
-- `POST /api/collections/:id/sessions`
-- `GET /api/entities?collectionId=...`
-- `GET /api/entities?query=...`
-- `GET /api/entities/:id`
-- `GET /api/analytics`
-
-All AI calls happen server-side.
+These migrations create the document workspace, pgvector retrieval, private storage bucket, collections, knowledge graph tables, research sessions, analytics, rate limits, and compatibility views used by the app.
 
 ## Verification
 
@@ -192,4 +148,4 @@ npm test
 npm run build
 ```
 
-The current suite covers chunking, prompt rendering, Zod output contracts, and export formatting.
+Current live verification covers authenticated login, document upload, collection creation, multi-document synthesis, knowledge extraction, the knowledge graph, analytics, and export-ready workspace state.
