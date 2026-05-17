@@ -8,6 +8,7 @@ import {
 } from "@/lib/ai/schemas";
 import { embedTexts } from "@/lib/ai/embeddings";
 import { promptTemplates, renderPrompt } from "@/lib/ai/prompts";
+import { shouldUseDemoAi } from "@/lib/config";
 import {
   AiProviderUnavailableError,
   generateStructuredJson,
@@ -47,6 +48,10 @@ function chunksHash(chunks: DocumentChunk[], suffix = "") {
   return sha256(
     `${chunks.map((chunk) => `${chunk.id}:${chunk.tokenCount}`).join("|")}:${suffix}`,
   );
+}
+
+function shouldUseDemoFallback(error: unknown) {
+  return shouldUseDemoAi() || error instanceof AiProviderUnavailableError;
 }
 
 function citationFromChunk(chunk: DocumentChunk | RetrievalHit): Citation {
@@ -163,8 +168,8 @@ export async function summarizeProject(
 
     return { output: normalized, cached: false };
   } catch (error) {
-    if (!(error instanceof AiProviderUnavailableError)) {
-      console.error(error);
+    if (!shouldUseDemoFallback(error)) {
+      throw error;
     }
 
     const output = demoSummary(chunks, depth);
@@ -220,8 +225,8 @@ export async function extractInsights(ctx: ResearchContext, projectId: string) {
 
     return { output, cached: false };
   } catch (error) {
-    if (!(error instanceof AiProviderUnavailableError)) {
-      console.error(error);
+    if (!shouldUseDemoFallback(error)) {
+      throw error;
     }
 
     const output = demoInsights(chunks);
@@ -276,8 +281,8 @@ export async function generateKeywords(ctx: ResearchContext, projectId: string) 
 
     return { output, cached: false };
   } catch (error) {
-    if (!(error instanceof AiProviderUnavailableError)) {
-      console.error(error);
+    if (!shouldUseDemoFallback(error)) {
+      throw error;
     }
 
     const output = demoKeywords();
@@ -339,8 +344,8 @@ export async function answerQuestion(
 
     return { output: normalized, message: saved, cached: false };
   } catch (error) {
-    if (!(error instanceof AiProviderUnavailableError)) {
-      console.error(error);
+    if (!shouldUseDemoFallback(error)) {
+      throw error;
     }
 
     const output = demoAnswer(question, hits);

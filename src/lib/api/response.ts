@@ -5,6 +5,7 @@ export type ApiErrorCode =
   | "bad_request"
   | "unauthorized"
   | "not_found"
+  | "payload_too_large"
   | "rate_limit_exceeded"
   | "validation_error"
   | "upstream_error"
@@ -46,8 +47,12 @@ export function validationFail(error: ZodError) {
 }
 
 export function unknownFail(error: unknown) {
-  const message =
-    error instanceof Error ? error.message : "An unexpected error occurred.";
+  const message = error instanceof Error ? error.message : String(error);
+  console.error("Unhandled API error:", message);
 
-  return fail("internal_error", message, 500);
+  return fail("internal_error", "An unexpected error occurred.", 500);
+}
+
+export function upstreamFail(message = "The upstream AI service failed.") {
+  return fail("upstream_error", message, 502);
 }

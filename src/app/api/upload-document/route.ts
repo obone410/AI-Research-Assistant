@@ -15,6 +15,10 @@ import { generateEmbeddingsForChunks } from "@/lib/research/processing";
 
 export const runtime = "nodejs";
 
+const MAX_FILE_BYTES = 15 * 1024 * 1024;
+const MAX_EXTRACTED_TEXT_CHARS = 280_000;
+const MAX_CHUNKS_PER_DOCUMENT = 180;
+
 export async function POST(request: NextRequest) {
   const limit = rateLimit(request, "documents:upload", 10, 60_000);
   if (!limit.allowed) {
@@ -40,7 +44,7 @@ export async function POST(request: NextRequest) {
       return fail("bad_request", "Upload a PDF, TXT, or DOCX file.", 400);
     }
 
-    if (file.size > 15 * 1024 * 1024) {
+    if (file.size > MAX_FILE_BYTES) {
       return fail("bad_request", "File size must be 15MB or less.", 400);
     }
 
@@ -59,7 +63,23 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (rawText.length > MAX_EXTRACTED_TEXT_CHARS) {
+      return fail(
+        "payload_too_large",
+        "The extracted document text is too large for this workspace. Split the document and upload a smaller section.",
+        413,
+      );
+    }
+
     const chunks = chunkDocument({ text: rawText });
+
+    if (chunks.length > MAX_CHUNKS_PER_DOCUMENT) {
+      return fail(
+        "payload_too_large",
+        "The document produced too many chunks. Split it into smaller research projects before processing.",
+        413,
+      );
+    }
     const embeddings = await generateEmbeddingsForChunks(chunks);
     const contentHash = sha256(buffer);
 
