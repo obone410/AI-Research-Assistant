@@ -114,6 +114,15 @@ describe("prompt templates and output schemas", () => {
           citations: [],
         },
       ],
+      relationships: [
+        {
+          source: "ResearchOS",
+          target: "Citations",
+          relation: "uses",
+          strength: 0.8,
+          evidence: "The workspace links answers to chunks.",
+        },
+      ],
     });
 
     expect(parsed.entities[0].name).toBe("ResearchOS");

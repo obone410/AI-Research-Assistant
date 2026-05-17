@@ -163,7 +163,8 @@ Return only JSON:
 {
   "entities": [{"name":"", "type":"", "summary":"", "confidence":"medium", "mentions":1}],
   "linkedInsights": [{"title":"", "body":"", "category":"", "confidence":"medium", "citations":[{"chunkId":"", "chunkIndex":0, "quote":""}]}],
-  "claims": [{"claim":"", "evidence":"", "stance":"neutral", "confidence":"medium", "citations":[{"chunkId":"", "chunkIndex":0, "quote":""}]}]
+  "claims": [{"claim":"", "evidence":"", "stance":"neutral", "confidence":"medium", "citations":[{"chunkId":"", "chunkIndex":0, "quote":""}]}],
+  "relationships": [{"source":"", "target":"", "relation":"", "strength":0.7, "evidence":""}]
 }
 
 Context:

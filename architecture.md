@@ -20,18 +20,19 @@ The application has four runtime layers:
 5. AI actions load project chunks, render versioned prompt templates, call the configured provider server-side, validate JSON output with Zod, and cache outputs by document/chunk hash.
 6. Q&A embeds the question, retrieves relevant chunks through pgvector or lexical fallback, and returns cited answers.
 7. Collections attach multiple projects, retrieve source chunks across documents, and generate unified reports, source comparisons, executive briefs, trend analysis, and research gap outputs.
-8. Knowledge extraction stores entities, linked insights, and source-backed claims so research memory can be reused across the workspace.
+8. Knowledge extraction stores entities, document-to-entity links, concept relationships, linked insights, and source-backed claims so research memory can be reused across the workspace.
 9. Exports assemble Markdown or JSON from projects or collections, including AI outputs, research chat, entities, claims, notes, highlights, and citations.
 
 ## Key Modules
 
 - `src/app/api/*`: public HTTP interface. All mutating and AI routes require a server-verified user unless the app is intentionally running without Supabase configuration in demo mode.
 - `src/lib/research/repository.ts`: data-access boundary for Supabase and in-memory demo mode.
-- `src/lib/research/processing.ts`: AI pipeline orchestration, cache checks, RAG retrieval, collection synthesis, knowledge extraction, analytics recording, and demo fallback policy.
+- `src/lib/research/processing.ts`: AI pipeline orchestration, cache checks, hybrid RAG retrieval, collection synthesis, knowledge extraction, analytics recording, and demo fallback policy.
 - `src/lib/ai/*`: provider abstraction, embeddings, prompt templates, and Zod schemas.
 - `src/lib/documents/*`: extraction, normalization, token estimation, chunking, and prompt compaction.
 - `supabase/migrations/0001_researchos.sql`: base schema, indexes, storage bucket, RLS policies, and `match_document_chunks` RPC.
 - `supabase/migrations/0002_research_intelligence_workspace.sql`: collection, synthesis, knowledge, research chat, workflow progress, usage analytics, and saved view tables.
+- `supabase/migrations/0003_entity_relationships_and_cache.sql`: document-to-entity links, concept relationships, and reusable Q&A cache.
 
 ## Storage Model
 
@@ -49,6 +50,8 @@ Supabase tables:
 - `collection_documents`
 - `synthesis_reports`
 - `knowledge_entities`
+- `document_entities`
+- `entity_relationships`
 - `linked_insights`
 - `research_claims`
 - `collection_qa_messages`
@@ -56,6 +59,7 @@ Supabase tables:
 - `research_pipeline_steps`
 - `ai_usage_metrics`
 - `saved_research_views`
+- `qa_response_cache`
 
 Storage bucket:
 

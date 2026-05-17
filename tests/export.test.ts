@@ -118,6 +118,33 @@ const collection: CollectionDetail = {
       createdAt: "2026-05-16T00:00:00.000Z",
     },
   ],
+  documentEntities: [
+    {
+      id: "document-entity-1",
+      collectionId: "collection-1",
+      projectId: "project-1",
+      documentId: "doc-1",
+      entityId: "entity-1",
+      entityName: "ResearchOS",
+      entityType: "Product",
+      context: "Mentioned in the brief.",
+      createdAt: "2026-05-16T00:00:00.000Z",
+    },
+  ],
+  relationships: [
+    {
+      id: "relationship-1",
+      collectionId: "collection-1",
+      sourceEntityId: "entity-1",
+      targetEntityId: "entity-2",
+      sourceName: "ResearchOS",
+      targetName: "Reusable memory",
+      relation: "supports",
+      strength: 0.84,
+      evidence: "The collection keeps outputs reusable.",
+      createdAt: "2026-05-16T00:00:00.000Z",
+    },
+  ],
   insights: [
     {
       id: "insight-1",
@@ -170,6 +197,7 @@ describe("report export", () => {
     expect(markdown).toContain("# AI Research Collection");
     expect(markdown).toContain("Unified report");
     expect(markdown).toContain("ResearchOS");
+    expect(markdown).toContain("Concept Links");
   });
 
   it("builds collection JSON exports", () => {
@@ -177,5 +205,6 @@ describe("report export", () => {
 
     expect(json.collection.name).toBe("AI Research Collection");
     expect(json.citations[0].quote).toBe("Collection evidence.");
+    expect(json.relationships[0].relation).toBe("supports");
   });
 });

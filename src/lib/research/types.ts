@@ -149,6 +149,31 @@ export type KnowledgeEntity = {
   createdAt: string;
 };
 
+export type DocumentEntity = {
+  id: string;
+  collectionId?: string | null;
+  projectId?: string | null;
+  documentId?: string | null;
+  entityId: string;
+  entityName: string;
+  entityType: string;
+  context?: string | null;
+  createdAt: string;
+};
+
+export type EntityRelationship = {
+  id: string;
+  collectionId?: string | null;
+  sourceEntityId: string;
+  targetEntityId: string;
+  sourceName: string;
+  targetName: string;
+  relation: string;
+  strength: number;
+  evidence?: string | null;
+  createdAt: string;
+};
+
 export type LinkedInsight = {
   id: string;
   collectionId?: string | null;
@@ -219,6 +244,14 @@ export type UsageMetric = {
   createdAt: string;
 };
 
+export type CachedQaResponse = {
+  output: unknown;
+  provider: string;
+  model: string;
+  tokenEstimate: number;
+  createdAt: string;
+};
+
 export type UsageAnalytics = {
   totalTokens: number;
   totalRuns: number;
@@ -237,6 +270,8 @@ export type CollectionDetail = ResearchCollection & {
   documents: CollectionDocument[];
   reports: SynthesisReport[];
   entities: KnowledgeEntity[];
+  documentEntities: DocumentEntity[];
+  relationships: EntityRelationship[];
   insights: LinkedInsight[];
   claims: ResearchClaim[];
   qa: CollectionQaMessage[];

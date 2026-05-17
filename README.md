@@ -65,6 +65,8 @@ Apply the migrations in `supabase/migrations` in order. `0001_researchos.sql` cr
 - `collection_documents`
 - `synthesis_reports`
 - `knowledge_entities`
+- `document_entities`
+- `entity_relationships`
 - `linked_insights`
 - `research_claims`
 - `collection_qa_messages`
@@ -72,6 +74,8 @@ Apply the migrations in `supabase/migrations` in order. `0001_researchos.sql` cr
 - `research_pipeline_steps`
 - `ai_usage_metrics`
 - `saved_research_views`
+
+`0003_entity_relationships_and_cache.sql` adds document-to-entity links, concept relationships, and a reusable Q&A cache for repeated project or collection questions.
 
 ## API Routes
 
@@ -93,6 +97,7 @@ Apply the migrations in `supabase/migrations` in order. `0001_researchos.sql` cr
 - `POST /api/collections/:id/synthesize`
 - `POST /api/collections/:id/knowledge`
 - `POST /api/collections/:id/chat`
+- `GET /api/entities?collectionId=...`
 - `GET /api/analytics`
 
 All AI calls happen server-side.

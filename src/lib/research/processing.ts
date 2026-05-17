@@ -23,6 +23,7 @@ import {
   addQaMessage,
   addCollectionQaMessage,
   getCachedOutput,
+  getCachedQaResponse,
   getCollectionDetail,
   getCollectionChunks,
   getProjectChunks,
@@ -31,6 +32,7 @@ import {
   retrieveRelevantChunks,
   retrieveRelevantCollectionChunks,
   saveOutput,
+  saveCachedQaResponse,
   saveCollectionKnowledge,
   saveCollectionSynthesisReport,
   type ResearchContext,
@@ -345,6 +347,32 @@ export async function answerQuestion(
   question: string,
 ) {
   const hits = await retrieveRelevantChunks(ctx, projectId, question, 6);
+  const questionHash = sha256(
+    `project:${projectId}:${question.trim().toLowerCase()}:${hits
+      .map((hit) => hit.id)
+      .join("|")}`,
+  );
+  const cached = await getCachedQaResponse(ctx, {
+    scope: "project",
+    questionHash,
+  });
+
+  if (cached) {
+    const output = cached.output as AnswerOutput;
+    const saved = await addQaMessage(
+      ctx,
+      projectId,
+      question,
+      output.answer,
+      output.citations.length
+        ? output.citations
+        : hits.slice(0, 2).map(citationFromChunk),
+      cached.provider,
+      cached.model,
+    );
+
+    return { output, message: saved, cached: true };
+  }
 
   try {
     const template = promptTemplates.answerQuestion;
@@ -359,6 +387,7 @@ export async function answerQuestion(
     });
 
     const normalized = normalizeCitations(output, hits) as AnswerOutput;
+    const tokenEstimate = estimateTokens(prompt);
     const saved = await addQaMessage(
       ctx,
       projectId,
@@ -370,6 +399,16 @@ export async function answerQuestion(
       metadata.provider,
       metadata.model,
     );
+    await saveCachedQaResponse(ctx, {
+      scope: "project",
+      projectId,
+      questionHash,
+      question,
+      output: normalized,
+      provider: metadata.provider,
+      model: metadata.model,
+      tokenEstimate,
+    });
 
     return { output: normalized, message: saved, cached: false };
   } catch (error) {
@@ -378,6 +417,16 @@ export async function answerQuestion(
     }
 
     const output = demoAnswer(question, hits);
+    await saveCachedQaResponse(ctx, {
+      scope: "project",
+      projectId,
+      questionHash,
+      question,
+      output,
+      provider: "demo",
+      model: "demo",
+      tokenEstimate: 0,
+    });
     const saved = await addQaMessage(
       ctx,
       projectId,
@@ -429,6 +478,7 @@ function normalizeKnowledge(
       ...normalizeCitations(claim, hits),
       projectId: null,
     })),
+    relationships: output.relationships,
   };
 }
 
@@ -605,6 +655,43 @@ export async function answerCollectionQuestion(
 ) {
   const startedAt = Date.now();
   const hits = await retrieveRelevantCollectionChunks(ctx, collectionId, question, 8);
+  const questionHash = sha256(
+    `collection:${collectionId}:${question.trim().toLowerCase()}:${hits
+      .map((hit) => hit.id)
+      .join("|")}`,
+  );
+  const cached = await getCachedQaResponse(ctx, {
+    scope: "collection",
+    questionHash,
+  });
+
+  if (cached) {
+    const output = cached.output as AnswerOutput;
+    const saved = await addCollectionQaMessage(
+      ctx,
+      collectionId,
+      question,
+      output.answer,
+      output.citations.length
+        ? output.citations
+        : hits.slice(0, 3).map(citationFromChunk),
+      cached.provider,
+      cached.model,
+    );
+
+    await recordUsageMetric(ctx, {
+      collectionId,
+      projectId: null,
+      action: "collection.chat.cached",
+      provider: cached.provider,
+      model: cached.model,
+      tokenEstimate: cached.tokenEstimate,
+      latencyMs: Date.now() - startedAt,
+      chunkCount: hits.length,
+    });
+
+    return { output, message: saved, cached: true };
+  }
 
   try {
     const template = promptTemplates.answerCollectionQuestion;
@@ -619,6 +706,7 @@ export async function answerCollectionQuestion(
     });
 
     const normalized = normalizeCitations(output, hits) as AnswerOutput;
+    const tokenEstimate = estimateTokens(prompt);
     const saved = await addCollectionQaMessage(
       ctx,
       collectionId,
@@ -630,6 +718,16 @@ export async function answerCollectionQuestion(
       metadata.provider,
       metadata.model,
     );
+    await saveCachedQaResponse(ctx, {
+      scope: "collection",
+      collectionId,
+      questionHash,
+      question,
+      output: normalized,
+      provider: metadata.provider,
+      model: metadata.model,
+      tokenEstimate,
+    });
 
     await recordUsageMetric(ctx, {
       collectionId,
@@ -637,7 +735,7 @@ export async function answerCollectionQuestion(
       action: "collection.chat",
       provider: metadata.provider,
       model: metadata.model,
-      tokenEstimate: estimateTokens(prompt),
+      tokenEstimate,
       latencyMs: Date.now() - startedAt,
       chunkCount: hits.length,
     });
@@ -649,6 +747,16 @@ export async function answerCollectionQuestion(
     }
 
     const output = demoAnswer(question, hits);
+    await saveCachedQaResponse(ctx, {
+      scope: "collection",
+      collectionId,
+      questionHash,
+      question,
+      output,
+      provider: "demo",
+      model: "demo",
+      tokenEstimate: 0,
+    });
     const saved = await addCollectionQaMessage(
       ctx,
       collectionId,

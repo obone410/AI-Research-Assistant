@@ -5,11 +5,16 @@ export const summaryDepthSchema = z.enum(["short", "detailed", "executive"]);
 export const citationSchema = z.object({
   chunkId: z.string(),
   chunkIndex: z.number(),
+  documentId: z.string().nullable().optional(),
+  documentTitle: z.string().nullable().optional(),
+  projectId: z.string().nullable().optional(),
+  projectTitle: z.string().nullable().optional(),
   sectionTitle: z.string().nullable().optional(),
   pageStart: z.number().nullable().optional(),
   pageEnd: z.number().nullable().optional(),
   quote: z.string(),
   similarity: z.number().optional(),
+  confidence: z.enum(["low", "medium", "high"]).optional(),
 });
 
 export const summarySchema = z.object({
@@ -144,6 +149,15 @@ export const knowledgeExtractionSchema = z.object({
       stance: z.enum(["supports", "challenges", "neutral"]),
       confidence: z.enum(["low", "medium", "high"]),
       citations: z.array(citationSchema),
+    }),
+  ),
+  relationships: z.array(
+    z.object({
+      source: z.string(),
+      target: z.string(),
+      relation: z.string(),
+      strength: z.number().min(0).max(1),
+      evidence: z.string(),
     }),
   ),
 });

@@ -250,6 +250,7 @@ export function ResearchWorkspace({
   const [collectionQuestion, setCollectionQuestion] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [commandOpen, setCommandOpen] = useState(false);
+  const [targetChunkId, setTargetChunkId] = useState<string | null>(null);
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [steps, setSteps] = useState<string[]>([]);
   const [error, setError] = useState("");
@@ -392,6 +393,20 @@ export function ResearchWorkspace({
     window.addEventListener("keydown", handleKeydown);
     return () => window.removeEventListener("keydown", handleKeydown);
   }, []);
+
+  useEffect(() => {
+    if (!targetChunkId || workspaceView !== "project") {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      document
+        .getElementById(`chunk-${targetChunkId}`)
+        ?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 100);
+
+    return () => window.clearTimeout(timer);
+  }, [activeProject, targetChunkId, workspaceView]);
 
   async function handleUpload(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -804,6 +819,7 @@ export function ResearchWorkspace({
 
   async function openCitation(citation: Citation) {
     if (citation.projectId) {
+      setTargetChunkId(citation.chunkId);
       await loadProject(citation.projectId);
       setWorkspaceView("project");
     }
@@ -1117,7 +1133,13 @@ export function ResearchWorkspace({
                   {activeProject?.chunks.map((chunk) => (
                     <article
                       key={chunk.id}
-                      className="border border-slate-200 bg-slate-50 p-3"
+                      id={`chunk-${chunk.id}`}
+                      className={clsx(
+                        "border p-3 transition-colors",
+                        targetChunkId === chunk.id
+                          ? "border-amber-400 bg-amber-50"
+                          : "border-slate-200 bg-slate-50",
+                      )}
                     >
                       <div className="mb-2 flex items-start justify-between gap-3">
                         <div>
@@ -1411,6 +1433,48 @@ export function ResearchWorkspace({
                       ))}
                       {!activeCollection?.insights.length ? (
                         <EmptyState title="No linked insights yet." />
+                      ) : null}
+                    </div>
+                  </div>
+
+                  <div className="border border-slate-300 bg-white">
+                    <div className="border-b border-slate-200 px-4 py-3">
+                      <h2 className="font-semibold">Concept Links</h2>
+                    </div>
+                    <div className="space-y-3 p-4">
+                      {activeCollection?.relationships.map((relationship) => (
+                        <article
+                          key={relationship.id}
+                          className="border border-slate-200 bg-slate-50 p-3"
+                        >
+                          <div className="flex flex-wrap items-center gap-2 text-sm">
+                            <span className="font-semibold">
+                              {relationship.sourceName}
+                            </span>
+                            <span className="border border-slate-300 bg-white px-2 py-1 text-xs">
+                              {relationship.relation}
+                            </span>
+                            <span className="font-semibold">
+                              {relationship.targetName}
+                            </span>
+                          </div>
+                          <div className="mt-3 h-2 bg-white">
+                            <div
+                              className="h-2 bg-slate-950"
+                              style={{
+                                width: `${Math.max(8, Math.round(relationship.strength * 100))}%`,
+                              }}
+                            />
+                          </div>
+                          {relationship.evidence ? (
+                            <p className="mt-2 text-xs leading-5 text-slate-600">
+                              {relationship.evidence}
+                            </p>
+                          ) : null}
+                        </article>
+                      ))}
+                      {!activeCollection?.relationships.length ? (
+                        <EmptyState title="Entity relationships appear after knowledge extraction." />
                       ) : null}
                     </div>
                   </div>

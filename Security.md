@@ -11,7 +11,7 @@ The Supabase values supplied by the owner were added only to ignored `.env.local
 Primary assets:
 
 - User documents and extracted raw text.
-- Document chunks, embeddings, AI summaries, insights, keywords, notes, highlights, collection reports, extracted entities, research claims, and Q&A history.
+- Document chunks, embeddings, AI summaries, insights, keywords, notes, highlights, collection reports, extracted entities, entity links, research claims, cached research answers, and Q&A history.
 - Supabase sessions and private Storage objects.
 - AI provider API keys when configured.
 
@@ -66,7 +66,7 @@ The migration defines RLS policies, private storage bucket policies, and pgvecto
 
 Required action:
 
-- Apply `supabase/migrations/0001_researchos.sql` and `supabase/migrations/0002_research_intelligence_workspace.sql` to the target Supabase project.
+- Apply `supabase/migrations/0001_researchos.sql`, `supabase/migrations/0002_research_intelligence_workspace.sql`, and `supabase/migrations/0003_entity_relationships_and_cache.sql` to the target Supabase project.
 - Confirm the `vector` extension is enabled.
 - Confirm the `research-documents` bucket is private.
 - Confirm authenticated users can only read/write rows where `user_id = auth.uid()`.

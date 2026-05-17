@@ -14,6 +14,7 @@ import {
   createDemoPipelineRun,
   getDemoCollection,
   getDemoCollectionChunks,
+  getDemoCachedQa,
   getDemoOutput,
   getDemoProject,
   getDemoUsageAnalytics,
@@ -21,15 +22,19 @@ import {
   listDemoCollections,
   saveDemoOutput,
   saveDemoKnowledge,
+  saveDemoCachedQa,
   saveDemoSynthesisReport,
   toggleDemoPin,
 } from "@/lib/research/demo-store";
 import type {
   Citation,
+  CachedQaResponse,
   CollectionDetail,
   CollectionDocument,
   CollectionQaMessage,
+  DocumentEntity,
   DocumentChunk,
+  EntityRelationship,
   Highlight,
   KnowledgeEntity,
   LinkedInsight,
@@ -218,6 +223,47 @@ function mapKnowledgeEntity(row: DbRow): KnowledgeEntity {
     summary: row.summary as string,
     confidence: row.confidence as KnowledgeEntity["confidence"],
     mentions: Number(row.mentions ?? 1),
+    createdAt: row.created_at as string,
+  };
+}
+
+function mapDocumentEntity(row: DbRow): DocumentEntity {
+  return {
+    id: row.id as string,
+    collectionId: row.collection_id as string | null,
+    projectId: row.project_id as string | null,
+    documentId: row.document_id as string | null,
+    entityId: row.entity_id as string,
+    entityName:
+      (row.entity_name as string | undefined) ??
+      nestedText(row, "knowledge_entities", "name") ??
+      "Entity",
+    entityType:
+      (row.entity_type as string | undefined) ??
+      nestedText(row, "knowledge_entities", "type") ??
+      "Concept",
+    context: row.context as string | null,
+    createdAt: row.created_at as string,
+  };
+}
+
+function mapEntityRelationship(row: DbRow): EntityRelationship {
+  return {
+    id: row.id as string,
+    collectionId: row.collection_id as string | null,
+    sourceEntityId: row.source_entity_id as string,
+    targetEntityId: row.target_entity_id as string,
+    sourceName:
+      (row.source_name as string | undefined) ??
+      nestedText(row, "source_entity", "name") ??
+      "Source",
+    targetName:
+      (row.target_name as string | undefined) ??
+      nestedText(row, "target_entity", "name") ??
+      "Target",
+    relation: row.relation as string,
+    strength: Number(row.strength ?? 0.5),
+    evidence: row.evidence as string | null,
     createdAt: row.created_at as string,
   };
 }
@@ -540,6 +586,8 @@ export async function getCollectionDetail(
     documentsResult,
     reportsResult,
     entitiesResult,
+    documentEntitiesResult,
+    relationshipsResult,
     insightsResult,
     claimsResult,
     qaResult,
@@ -565,6 +613,18 @@ export async function getCollectionDetail(
       .select("*")
       .eq("collection_id", collectionId)
       .order("mentions", { ascending: false }),
+    ctx.supabase
+      .from("document_entities")
+      .select("*, knowledge_entities(name, type)")
+      .eq("collection_id", collectionId)
+      .order("created_at", { ascending: false }),
+    ctx.supabase
+      .from("entity_relationships")
+      .select(
+        "*, source_entity:knowledge_entities!entity_relationships_source_entity_id_fkey(name), target_entity:knowledge_entities!entity_relationships_target_entity_id_fkey(name)",
+      )
+      .eq("collection_id", collectionId)
+      .order("strength", { ascending: false }),
     ctx.supabase
       .from("linked_insights")
       .select("*")
@@ -620,6 +680,8 @@ export async function getCollectionDetail(
     documents: (documentsResult.data ?? []).map(mapCollectionDocument),
     reports: (reportsResult.data ?? []).map(mapSynthesisReport),
     entities: (entitiesResult.data ?? []).map(mapKnowledgeEntity),
+    documentEntities: (documentEntitiesResult.data ?? []).map(mapDocumentEntity),
+    relationships: (relationshipsResult.data ?? []).map(mapEntityRelationship),
     insights: (insightsResult.data ?? []).map(mapLinkedInsight),
     claims: (claimsResult.data ?? []).map(mapResearchClaim),
     qa: (qaResult.data ?? []).map(mapCollectionQa),
@@ -881,6 +943,87 @@ export async function saveOutput(
   }
 }
 
+export async function getCachedQaResponse(
+  ctx: ResearchContext,
+  input: {
+    scope: "project" | "collection";
+    questionHash: string;
+  },
+): Promise<CachedQaResponse | null> {
+  if (ctx.mode === "demo") {
+    return getDemoCachedQa(`${input.scope}:${input.questionHash}`) ?? null;
+  }
+
+  const { data, error } = await ctx.supabase
+    .from("qa_response_cache")
+    .select("*")
+    .eq("scope", input.scope)
+    .eq("question_hash", input.questionHash)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  if (!data) {
+    return null;
+  }
+
+  return {
+    output: data.output,
+    provider: data.provider as string,
+    model: data.model as string,
+    tokenEstimate: Number(data.token_estimate ?? 0),
+    createdAt: data.created_at as string,
+  };
+}
+
+export async function saveCachedQaResponse(
+  ctx: ResearchContext,
+  input: {
+    scope: "project" | "collection";
+    projectId?: string | null;
+    collectionId?: string | null;
+    questionHash: string;
+    question: string;
+    output: unknown;
+    provider: string;
+    model: string;
+    tokenEstimate: number;
+  },
+) {
+  if (ctx.mode === "demo") {
+    saveDemoCachedQa(`${input.scope}:${input.questionHash}`, {
+      output: input.output,
+      provider: input.provider,
+      model: input.model,
+      tokenEstimate: input.tokenEstimate,
+      createdAt: new Date().toISOString(),
+    });
+    return;
+  }
+
+  const { error } = await ctx.supabase.from("qa_response_cache").upsert(
+    {
+      user_id: ctx.user.id,
+      scope: input.scope,
+      project_id: input.projectId ?? null,
+      collection_id: input.collectionId ?? null,
+      question_hash: input.questionHash,
+      question: input.question,
+      output: input.output,
+      provider: input.provider,
+      model: input.model,
+      token_estimate: input.tokenEstimate,
+    },
+    { onConflict: "user_id,scope,question_hash" },
+  );
+
+  if (error) {
+    throw new Error(error.message);
+  }
+}
+
 function tokenize(text: string) {
   return new Set(
     text
@@ -895,30 +1038,58 @@ function lexicalRetrieve(chunks: DocumentChunk[], question: string, count: numbe
 
   return chunks
     .map((chunk) => {
-      const contentTokens = tokenize(chunk.content);
-      let overlap = 0;
-      for (const token of questionTokens) {
-        if (contentTokens.has(token)) {
-          overlap += 1;
-        }
-      }
-
-      const phraseBoost = chunk.content
-        .toLowerCase()
-        .includes(question.toLowerCase().slice(0, 32))
-        ? 2
-        : 0;
-
       return {
         ...chunk,
-        similarity:
-          questionTokens.size === 0
-            ? 0
-            : (overlap + phraseBoost) / questionTokens.size,
+        similarity: lexicalScore(chunk.content, questionTokens, question),
       };
     })
     .sort((a, b) => b.similarity - a.similarity)
     .slice(0, count);
+}
+
+function lexicalScore(
+  content: string,
+  questionTokens: Set<string>,
+  question: string,
+) {
+  const contentTokens = tokenize(content);
+  let overlap = 0;
+  for (const token of questionTokens) {
+    if (contentTokens.has(token)) {
+      overlap += 1;
+    }
+  }
+
+  const phraseBoost = content
+    .toLowerCase()
+    .includes(question.toLowerCase().slice(0, 32))
+    ? 2
+    : 0;
+
+  return questionTokens.size === 0
+    ? 0
+    : (overlap + phraseBoost) / questionTokens.size;
+}
+
+function mergeHybridHits(
+  vectorHits: RetrievalHit[],
+  lexicalHits: RetrievalHit[],
+) {
+  const merged = new Map<string, RetrievalHit>();
+  for (const hit of vectorHits) {
+    merged.set(hit.id, { ...hit, similarity: hit.similarity * 0.72 });
+  }
+
+  for (const hit of lexicalHits) {
+    const existing = merged.get(hit.id);
+    merged.set(hit.id, {
+      ...hit,
+      ...existing,
+      similarity: (existing?.similarity ?? 0) + hit.similarity * 0.28,
+    });
+  }
+
+  return Array.from(merged.values()).sort((a, b) => b.similarity - a.similarity);
 }
 
 export async function retrieveRelevantChunks(
@@ -938,7 +1109,7 @@ export async function retrieveRelevantChunks(
       });
 
       if (!error && data?.length) {
-        return data.map((row: DbRow) => ({
+        const vectorHits = data.map((row: DbRow) => ({
           id: row.id as string,
           documentId: row.document_id as string,
           projectId,
@@ -950,6 +1121,13 @@ export async function retrieveRelevantChunks(
           pageEnd: row.page_end as number | null,
           similarity: Number(row.similarity ?? 0),
         }));
+        const lexicalHits = lexicalRetrieve(
+          await getProjectChunks(ctx, projectId),
+          question,
+          count,
+        );
+
+        return mergeHybridHits(vectorHits, lexicalHits).slice(0, count);
       }
     }
   }
@@ -1205,6 +1383,13 @@ export async function saveCollectionKnowledge(
     entities: Array<Omit<KnowledgeEntity, "id" | "createdAt" | "collectionId">>;
     insights: Array<Omit<LinkedInsight, "id" | "createdAt" | "collectionId">>;
     claims: Array<Omit<ResearchClaim, "id" | "createdAt" | "collectionId">>;
+    relationships?: Array<{
+      source: string;
+      target: string;
+      relation: string;
+      strength: number;
+      evidence?: string | null;
+    }>;
   },
 ) {
   if (ctx.mode === "demo") {
@@ -1214,6 +1399,14 @@ export async function saveCollectionKnowledge(
   await Promise.all([
     ctx.supabase
       .from("knowledge_entities")
+      .delete()
+      .eq("collection_id", input.collectionId),
+    ctx.supabase
+      .from("document_entities")
+      .delete()
+      .eq("collection_id", input.collectionId),
+    ctx.supabase
+      .from("entity_relationships")
       .delete()
       .eq("collection_id", input.collectionId),
     ctx.supabase
@@ -1275,8 +1468,69 @@ export async function saveCollectionKnowledge(
     }
   }
 
+  const entities = (entitiesResult.data ?? []).map(mapKnowledgeEntity);
+  const entityByName = new Map(
+    entities.map((entity) => [entity.name.toLowerCase(), entity]),
+  );
+  const collection = await getCollectionDetail(ctx, input.collectionId);
+  const documentEntityRows = (collection?.documents ?? []).flatMap((document) =>
+    entities.map((entity) => ({
+      collection_id: input.collectionId,
+      project_id: document.projectId,
+      document_id: document.documentId ?? null,
+      entity_id: entity.id,
+      user_id: ctx.user.id,
+      context: `Mentioned in ${document.projectTitle}.`,
+    })),
+  );
+  const relationshipRows = (input.relationships ?? []).flatMap((relationship) => {
+    const source = entityByName.get(relationship.source.toLowerCase());
+    const target = entityByName.get(relationship.target.toLowerCase());
+
+    if (!source || !target || source.id === target.id) {
+      return [];
+    }
+
+    return [
+      {
+        collection_id: input.collectionId,
+        source_entity_id: source.id,
+        target_entity_id: target.id,
+        user_id: ctx.user.id,
+        relation: relationship.relation,
+        strength: relationship.strength,
+        evidence: relationship.evidence ?? null,
+      },
+    ];
+  });
+
+  const [documentEntitiesResult, relationshipsResult] = await Promise.all([
+    documentEntityRows.length
+      ? ctx.supabase
+          .from("document_entities")
+          .insert(documentEntityRows)
+          .select("*, knowledge_entities(name, type)")
+      : Promise.resolve({ data: [], error: null }),
+    relationshipRows.length
+      ? ctx.supabase
+          .from("entity_relationships")
+          .insert(relationshipRows)
+          .select(
+            "*, source_entity:knowledge_entities!entity_relationships_source_entity_id_fkey(name), target_entity:knowledge_entities!entity_relationships_target_entity_id_fkey(name)",
+          )
+      : Promise.resolve({ data: [], error: null }),
+  ]);
+
+  for (const result of [documentEntitiesResult, relationshipsResult]) {
+    if (result.error) {
+      throw new Error(result.error.message);
+    }
+  }
+
   return {
-    entities: (entitiesResult.data ?? []).map(mapKnowledgeEntity),
+    entities,
+    documentEntities: (documentEntitiesResult.data ?? []).map(mapDocumentEntity),
+    relationships: (relationshipsResult.data ?? []).map(mapEntityRelationship),
     insights: (insightsResult.data ?? []).map(mapLinkedInsight),
     claims: (claimsResult.data ?? []).map(mapResearchClaim),
   };

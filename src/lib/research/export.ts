@@ -159,6 +159,15 @@ export function buildCollectionMarkdownReport(collection: CollectionDetail) {
   }
 
   lines.push("");
+  lines.push("## Concept Links");
+  lines.push("");
+  for (const relationship of collection.relationships) {
+    lines.push(
+      `- **${relationship.sourceName}** ${relationship.relation} **${relationship.targetName}** (${Math.round(relationship.strength * 100)}%): ${relationship.evidence ?? "No evidence note."}`,
+    );
+  }
+
+  lines.push("");
   lines.push("## Collection Q&A");
   lines.push("");
   for (const message of collection.qa.slice(0, 8)) {
@@ -191,6 +200,8 @@ export function buildCollectionJsonReport(collection: CollectionDetail) {
       documents: collection.documents,
       reports: collection.reports,
       entities: collection.entities,
+      documentEntities: collection.documentEntities,
+      relationships: collection.relationships,
       insights: collection.insights,
       claims: collection.claims,
       qa: collection.qa,

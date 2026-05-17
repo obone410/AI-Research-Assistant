@@ -2,9 +2,12 @@ import { randomUUID } from "node:crypto";
 import { chunkDocument } from "@/lib/documents/chunk";
 import type {
   Citation,
+  CachedQaResponse,
   CollectionDetail,
   CollectionDocument,
   CollectionQaMessage,
+  DocumentEntity,
+  EntityRelationship,
   Highlight,
   KnowledgeEntity,
   LinkedInsight,
@@ -41,6 +44,9 @@ type DemoState = {
   collectionQa: CollectionQaMessage[];
   pipelineRuns: ResearchPipelineRun[];
   metrics: UsageMetric[];
+  documentEntities: DocumentEntity[];
+  relationships: EntityRelationship[];
+  qaCache: Map<string, CachedQaResponse>;
 };
 
 const demoText = `ResearchOS Market Intelligence Brief
@@ -156,6 +162,9 @@ function createSeedStore(): DemoState {
     ],
     synthesisReports: [],
     entities: [],
+    documentEntities: [],
+    relationships: [],
+    qaCache: new Map(),
     linkedInsights: [],
     claims: [],
     collectionQa: [],
@@ -312,6 +321,12 @@ export function getDemoCollection(collectionId: string): CollectionDetail {
       .filter((item) => item.collectionId === collection.id)
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
     entities: store.entities.filter((item) => item.collectionId === collection.id),
+    documentEntities: store.documentEntities.filter(
+      (item) => item.collectionId === collection.id,
+    ),
+    relationships: store.relationships.filter(
+      (item) => item.collectionId === collection.id,
+    ),
     insights: store.linkedInsights.filter(
       (item) => item.collectionId === collection.id,
     ),
@@ -430,11 +445,24 @@ export function saveDemoKnowledge(input: {
   entities: Array<Omit<KnowledgeEntity, "id" | "createdAt" | "collectionId">>;
   insights: Array<Omit<LinkedInsight, "id" | "createdAt" | "collectionId">>;
   claims: Array<Omit<ResearchClaim, "id" | "createdAt" | "collectionId">>;
+  relationships?: Array<{
+    source: string;
+    target: string;
+    relation: string;
+    strength: number;
+    evidence?: string | null;
+  }>;
 }) {
   const store = getDemoStore();
   const now = new Date().toISOString();
 
   store.entities = store.entities.filter(
+    (item) => item.collectionId !== input.collectionId,
+  );
+  store.documentEntities = store.documentEntities.filter(
+    (item) => item.collectionId !== input.collectionId,
+  );
+  store.relationships = store.relationships.filter(
     (item) => item.collectionId !== input.collectionId,
   );
   store.linkedInsights = store.linkedInsights.filter(
@@ -462,12 +490,57 @@ export function saveDemoKnowledge(input: {
     collectionId: input.collectionId,
     createdAt: now,
   }));
+  const entityByName = new Map(
+    entities.map((entity) => [entity.name.toLowerCase(), entity]),
+  );
+  const collectionDocuments = store.collectionDocuments.filter(
+    (item) => item.collectionId === input.collectionId,
+  );
+  const documentEntities = collectionDocuments.flatMap((document) =>
+    entities.map((entity) => ({
+      id: randomUUID(),
+      collectionId: input.collectionId,
+      projectId: document.projectId,
+      documentId: document.documentId ?? null,
+      entityId: entity.id,
+      entityName: entity.name,
+      entityType: entity.type,
+      context: `Mentioned in ${document.projectTitle}.`,
+      createdAt: now,
+    })),
+  );
+  const relationships = (input.relationships ?? [])
+    .flatMap((relationship): EntityRelationship[] => {
+      const source = entityByName.get(relationship.source.toLowerCase());
+      const target = entityByName.get(relationship.target.toLowerCase());
+
+      if (!source || !target || source.id === target.id) {
+        return [];
+      }
+
+      return [
+        {
+          id: randomUUID(),
+          collectionId: input.collectionId,
+          sourceEntityId: source.id,
+          targetEntityId: target.id,
+          sourceName: source.name,
+          targetName: target.name,
+          relation: relationship.relation,
+          strength: relationship.strength,
+          evidence: relationship.evidence ?? null,
+          createdAt: now,
+        },
+      ];
+    });
 
   store.entities.unshift(...entities);
+  store.documentEntities.unshift(...documentEntities);
+  store.relationships.unshift(...relationships);
   store.linkedInsights.unshift(...insights);
   store.claims.unshift(...claims);
 
-  return { entities, insights, claims };
+  return { entities, documentEntities, relationships, insights, claims };
 }
 
 export function addDemoCollectionQa(
@@ -501,6 +574,14 @@ export function addDemoUsageMetric(input: Omit<UsageMetric, "id" | "createdAt">)
   };
   getDemoStore().metrics.unshift(metric);
   return metric;
+}
+
+export function getDemoCachedQa(key: string) {
+  return getDemoStore().qaCache.get(key);
+}
+
+export function saveDemoCachedQa(key: string, value: CachedQaResponse) {
+  getDemoStore().qaCache.set(key, value);
 }
 
 export function createDemoPipelineRun(input: {

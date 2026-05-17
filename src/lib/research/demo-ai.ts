@@ -269,5 +269,23 @@ export function demoKnowledgeExtraction(
         citations: citations.slice(0, 1),
       },
     ],
+    relationships: [
+      {
+        source: "ResearchOS",
+        target: "RAG-lite retrieval",
+        relation: "uses",
+        strength: 0.86,
+        evidence:
+          "The workspace uses retrieval over chunks to generate cited answers and collection reports.",
+      },
+      {
+        source: "ResearchOS",
+        target: "Supabase",
+        relation: "is implemented with",
+        strength: 0.82,
+        evidence:
+          "Supabase stores documents, metadata, embeddings, and research memory.",
+      },
+    ],
   };
 }
