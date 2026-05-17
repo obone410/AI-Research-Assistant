@@ -1,6 +1,6 @@
 # ResearchOS
 
-**ResearchOS is an AI Research Intelligence Workspace for turning document collections into cited summaries, cross-source synthesis, structured knowledge, and reusable research outputs.**
+**AI Research Intelligence Workspace for multi-document analysis, cited synthesis, and structured knowledge extraction.**
 
 [Live demo](https://ai-research-assistant-liart.vercel.app) · Next.js · Supabase · pgvector · OpenAI / Claude · TypeScript
 
@@ -10,49 +10,74 @@ Email: recruiter@researchos.dev
 Password: ResearchOS-Demo-2026!
 ```
 
-> This is a shared portfolio demo account. Please use non-confidential test documents, or create a separate account from the sign-up screen.
+> Shared portfolio account. Use non-confidential test documents, or create a separate account from the sign-up screen.
 
-![ResearchOS dashboard](docs/screenshots/dashboard.png)
+![ResearchOS workflow preview](docs/screenshots/researchos-workflow.gif)
 
-## Why This Exists
+---
 
-ResearchOS helps researchers, analysts, and AI teams organize large document collections, extract structured knowledge, synthesize findings across sources, and generate reusable research intelligence.
+## Why ResearchOS
 
-Most AI document tools stop at single-file summaries. ResearchOS is built around the harder workflow: upload multiple sources, retrieve the right evidence, compare what sources agree or disagree on, preserve citations, and turn the result into a usable research workspace.
+ResearchOS helps researchers, analysts, students, and AI teams organize large document collections, retrieve relevant information, synthesize findings across sources, and generate reusable research intelligence from unstructured documents.
 
-## Product Preview
+Most AI document tools summarize one file at a time. ResearchOS is built for the more realistic workflow: multiple sources, evidence-backed answers, cross-document comparison, extracted entities, reusable notes, and exportable research outputs.
 
-| Collection Workspace | Synthesis Report |
+---
+
+## At A Glance
+
+| Product Capability | What It Demonstrates |
 | --- | --- |
-| ![Research collection workspace](docs/screenshots/collection-workspace.png) | ![Unified synthesis report](docs/screenshots/synthesis-report.png) |
+| Multi-document collections | Cross-source research workflows, not isolated summarization |
+| Cited Q&A and synthesis | RAG-style retrieval with source references |
+| Knowledge graph | Structured extraction of entities, claims, insights, and relationships |
+| Research pipeline visibility | Upload, chunk, retrieve, analyze, synthesize, export |
+| Usage analytics | Token estimates, provider usage, latency, and retrieval metrics |
 
-| Knowledge Graph | Research Chat |
+---
+
+## Product Proof
+
+| Dashboard | Collection Workspace |
 | --- | --- |
-| ![Interactive knowledge graph](docs/screenshots/knowledge-graph.png) | ![Cited research chat](docs/screenshots/research-chat.png) |
+| ![ResearchOS dashboard](docs/screenshots/dashboard.png) | ![Research collection workspace](docs/screenshots/collection-workspace.png) |
 
-## Core Capabilities
+| Synthesis Report | Knowledge Graph |
+| --- | --- |
+| ![Unified synthesis report](docs/screenshots/synthesis-report.png) | ![Interactive knowledge graph](docs/screenshots/knowledge-graph.png) |
 
-- **Document ingestion:** PDF, TXT, and DOCX upload with text extraction, chunking, hashing, and storage.
-- **Cited research outputs:** summaries, insights, keywords, document Q&A, collection chat, and exportable Markdown / JSON reports.
-- **Multi-document synthesis:** unified summaries, source comparisons, contradictions, research gaps, trends, opportunities, and recommendations.
-- **Knowledge extraction:** entities, claims, linked insights, relationships, and an interactive graph explorer.
-- **Research workflow visibility:** pipeline stages, run history, analytics cards, provider usage, token estimates, and retrieval metrics.
-- **Production-minded fallback behavior:** pgvector retrieval when embeddings are available, lexical fallback when provider quota is unavailable, and graceful provider-error handling.
+| Research Chat |
+| --- |
+| ![Cited research chat](docs/screenshots/research-chat.png) |
+
+---
 
 ## Technical Highlights
 
-- Multi-document retrieval architecture for project-level and collection-level Q&A.
-- Supabase Postgres schema with pgvector chunk search and row-level security.
-- Token-aware chunking pipeline with content hashing and cache-aware processing.
-- Reusable prompt template layer with strict Zod output contracts.
-- OpenAI / Anthropic provider abstraction with server-only API calls.
-- Structured knowledge extraction for entities, claims, insights, and graph relationships.
-- Persistent research memory through notes, pinned answers, saved sessions, reports, and exports.
-- Recruiter-ready SaaS UX with auth, upload states, command palette, responsive panels, and analytics.
+- Multi-document semantic retrieval with pgvector.
+- Token-aware chunking and context optimization.
+- AI provider abstraction layer for OpenAI and Anthropic.
+- Strict Zod contracts for AI-generated summaries, insights, keywords, citations, and reports.
+- Structured knowledge extraction for entities, claims, linked insights, and relationships.
+- Cross-document synthesis workflows for themes, contradictions, gaps, opportunities, and recommendations.
+- Persistent research memory through notes, pins, saved sessions, reports, and exports.
+- Supabase Auth, Storage, Postgres, RLS policies, and private document buckets.
+- Cached AI response reuse and graceful fallback when provider quota is unavailable.
+
+---
 
 ## Architecture
 
-![ResearchOS architecture](docs/architecture.svg)
+![ResearchOS architecture](docs/architecture.png)
+
+The system is organized around four layers:
+
+| Layer | Responsibility |
+| --- | --- |
+| Workspace UI | Uploads, projects, collections, chat, knowledge graph, analytics, exports |
+| Server API | Auth checks, validation, rate limits, document processing, export generation |
+| AI pipeline | Chunking, retrieval, prompt templates, provider calls, structured output validation |
+| Research memory | Supabase Storage, Postgres, pgvector chunks, entities, reports, sessions |
 
 <details>
 <summary>Database ER diagram</summary>
@@ -80,6 +105,8 @@ erDiagram
 
 </details>
 
+---
+
 ## Stack
 
 | Layer | Technology |
@@ -90,6 +117,8 @@ erDiagram
 | Data | Supabase Auth, Storage, Postgres, pgvector |
 | AI | OpenAI embeddings / chat, Anthropic Claude chat |
 | Quality | Vitest, ESLint, npm audit |
+
+---
 
 ## Local Setup
 
@@ -119,6 +148,8 @@ DEMO_MODE=false
 ```
 
 Apply Supabase migrations in `supabase/migrations` from `0001` through `0007`.
+
+---
 
 ## Verification
 
