@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
 
   try {
     const parsed = querySchema.safeParse({
-      collectionId: request.nextUrl.searchParams.get("collectionId"),
+      collectionId: request.nextUrl.searchParams.get("collectionId") ?? undefined,
       q: request.nextUrl.searchParams.get("q") ?? undefined,
       query: request.nextUrl.searchParams.get("query") ?? undefined,
     });
