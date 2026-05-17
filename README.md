@@ -74,7 +74,7 @@ Copy-Item .env.example .env.local
 npm run dev
 ```
 
-Open `http://127.0.0.1:3000`.
+Live demo: https://ai-research-assistant-liart.vercel.app
 
 If Supabase env vars are absent, the app runs with an in-memory demo workspace. If AI keys are absent or `DEMO_MODE=true`, AI routes return deterministic demo outputs while preserving the same API contracts.
 
