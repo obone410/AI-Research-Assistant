@@ -486,6 +486,7 @@ export async function synthesizeCollection(
   ctx: ResearchContext,
   collectionId: string,
   kind: SynthesisReportKind,
+  options: { focusQuestion?: string | null } = {},
 ) {
   const startedAt = Date.now();
   const collection = await getCollectionDetail(ctx, collectionId);
@@ -508,6 +509,9 @@ export async function synthesizeCollection(
     const prompt = renderPrompt(template, {
       kind,
       collectionName: fallbackName,
+      focusQuestion:
+        options.focusQuestion?.trim() ||
+        "No extra focus question. Follow the report kind.",
       context: compactForPrompt(formatCollectionContext(selectedChunks), 6800),
     });
     const { output, metadata } = await generateStructuredJson({

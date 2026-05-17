@@ -10,6 +10,7 @@ export const runtime = "nodejs";
 
 const requestSchema = z.object({
   kind: synthesisReportKindSchema.default("combined_summary"),
+  focusQuestion: z.string().max(500).optional(),
 });
 
 export async function POST(
@@ -35,7 +36,11 @@ export async function POST(
       return fail("unauthorized", "Sign in to synthesize collections.", 401);
     }
 
-    return ok(await synthesizeCollection(ctx, id, parsed.data.kind));
+    return ok(
+      await synthesizeCollection(ctx, id, parsed.data.kind, {
+        focusQuestion: parsed.data.focusQuestion,
+      }),
+    );
   } catch (error) {
     return unknownFail(error);
   }

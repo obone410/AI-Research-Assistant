@@ -101,6 +101,7 @@ export type ResearchCollection = {
   id: string;
   name: string;
   description?: string | null;
+  ownerProjectId?: string | null;
   projectCount: number;
   documentCount: number;
   createdAt: string;

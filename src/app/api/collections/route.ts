@@ -10,10 +10,22 @@ import {
 
 export const runtime = "nodejs";
 
-const createCollectionSchema = z.object({
-  name: z.string().min(2).max(120),
-  description: z.string().max(500).optional().nullable(),
-});
+const createCollectionSchema = z
+  .object({
+    name: z.string().min(2).max(120).optional(),
+    title: z.string().min(2).max(120).optional(),
+    description: z.string().max(500).optional().nullable(),
+    ownerProjectId: z.string().min(1).optional().nullable(),
+  })
+  .refine((value) => Boolean(value.name || value.title), {
+    message: "Provide name or title.",
+    path: ["name"],
+  })
+  .transform((value) => ({
+    name: value.name ?? value.title ?? "Untitled collection",
+    description: value.description,
+    ownerProjectId: value.ownerProjectId,
+  }));
 
 export async function GET(request: NextRequest) {
   const limit = await enforceRateLimit(request, "collections:list", 90);
@@ -58,6 +70,7 @@ export async function POST(request: NextRequest) {
       ctx,
       parsed.data.name,
       parsed.data.description,
+      parsed.data.ownerProjectId,
     );
 
     return ok({ collection }, { status: 201 });

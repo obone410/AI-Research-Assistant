@@ -147,6 +147,9 @@ Collection:
 Report kind:
 {{kind}}
 
+Focus question:
+{{focusQuestion}}
+
 Context:
 {{context}}`,
   },

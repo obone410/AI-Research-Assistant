@@ -5,13 +5,15 @@ import { fail, ok, unknownFail, validationFail } from "@/lib/api/response";
 import {
   getCollectionDetail,
   getResearchContext,
+  listKnowledgeEntities,
 } from "@/lib/research/repository";
 
 export const runtime = "nodejs";
 
 const querySchema = z.object({
-  collectionId: z.string().min(1),
+  collectionId: z.string().min(1).optional(),
   q: z.string().max(120).optional(),
+  query: z.string().max(120).optional(),
 });
 
 export async function GET(request: NextRequest) {
@@ -26,6 +28,7 @@ export async function GET(request: NextRequest) {
     const parsed = querySchema.safeParse({
       collectionId: request.nextUrl.searchParams.get("collectionId"),
       q: request.nextUrl.searchParams.get("q") ?? undefined,
+      query: request.nextUrl.searchParams.get("query") ?? undefined,
     });
     if (!parsed.success) {
       return validationFail(parsed.error);
@@ -36,12 +39,22 @@ export async function GET(request: NextRequest) {
       return fail("unauthorized", "Sign in to view entities.", 401);
     }
 
+    const search = parsed.data.q ?? parsed.data.query;
+
+    if (!parsed.data.collectionId) {
+      return ok({
+        entities: await listKnowledgeEntities(ctx, { query: search }),
+        documentEntities: [],
+        relationships: [],
+      });
+    }
+
     const collection = await getCollectionDetail(ctx, parsed.data.collectionId);
     if (!collection) {
       return fail("not_found", "Collection not found.", 404);
     }
 
-    const query = parsed.data.q?.toLowerCase().trim();
+    const query = search?.toLowerCase().trim();
     const entities = query
       ? collection.entities.filter(
           (entity) =>

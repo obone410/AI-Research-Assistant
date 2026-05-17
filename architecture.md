@@ -36,6 +36,7 @@ The application has four runtime layers:
 - `supabase/migrations/0002_research_intelligence_workspace.sql`: collection, synthesis, knowledge, research chat, workflow progress, usage analytics, and saved view tables.
 - `supabase/migrations/0003_entity_relationships_and_cache.sql`: document-to-entity links, concept relationships, and reusable Q&A cache.
 - `supabase/migrations/0004_production_hardening.sql`: persistent API rate-limit buckets, action records, and `check_rate_limit(...)`.
+- `supabase/migrations/0005_pdf_schema_alignment.sql`: PDF-aligned `owner_project_id` and compatibility views for `research_runs` and `research_steps`.
 
 ## Storage Model
 
@@ -60,6 +61,8 @@ Supabase tables:
 - `collection_qa_messages`
 - `research_pipeline_runs`
 - `research_pipeline_steps`
+- `research_runs` compatibility view over `research_pipeline_runs`
+- `research_steps` compatibility view over `research_pipeline_steps`
 - `ai_usage_metrics`
 - `saved_research_views`
 - `qa_response_cache`
@@ -74,6 +77,68 @@ Vector retrieval:
 
 - `document_chunks.embedding vector(1536)`
 - `match_document_chunks(match_project_id, query_embedding, match_count)`
+
+## Database Schema ER Diagram
+
+This is the Mermaid ER diagram requested in the PDF. The implementation keeps the application table names `research_pipeline_runs` and `research_pipeline_steps`, and migration `0005_pdf_schema_alignment.sql` exposes PDF-aligned `research_runs` and `research_steps` compatibility views over those tables.
+
+```mermaid
+erDiagram
+    users ||--o{ research_projects : owns
+    research_projects ||--o{ documents : contains
+    research_projects ||--o{ research_runs : executes
+    research_collections ||--o{ collection_documents : includes
+    research_collections }o--|| research_projects : owner_project
+    documents ||--o{ document_chunks : has
+    documents ||--o{ document_entities : mentions
+    document_entities }o--|| knowledge_entities : is
+    knowledge_entities ||--o{ entity_relationships : relates
+    research_runs ||--o{ research_steps : consists_of
+    collection_documents }o--|| documents : doc
+```
+
+## PDF API Contracts
+
+The PDF API examples are supported alongside the existing UI payloads:
+
+```ts
+const CreateCollectionSchema = z.object({
+  title: z.string().min(2),
+  description: z.string().max(500).optional(),
+  ownerProjectId: z.string().min(1).optional(),
+});
+
+const AddDocSchema = z.object({
+  documentId: z.string().min(1),
+});
+
+const SynthesizeSchema = z.object({
+  kind: synthesisReportKindSchema.default("combined_summary"),
+  focusQuestion: z.string().max(500).optional(),
+});
+
+const QueryEntitySchema = z.object({
+  query: z.string().max(120).optional(),
+  collectionId: z.string().min(1).optional(),
+});
+```
+
+Compatibility routes:
+
+- `POST /api/collections/:id/add-document` aliases the implemented document attachment route.
+- `POST /api/collections/:id/documents` accepts either `projectId` or `documentId`.
+- `GET /api/entities?query=...` searches entities across the workspace.
+- `GET /api/entities?collectionId=...&query=...` searches inside one collection.
+
+## PDF Implementation Coverage
+
+- Multi-document collections: `research_collections`, `collection_documents`, `synthesis_reports`, collection dashboard, synthesis routes, and collection chat.
+- Knowledge layer: `knowledge_entities`, `document_entities`, `entity_relationships`, linked insights, claims, entity list, and entity detail route.
+- Citation tracing: structured citation objects include chunk, document, project, quote, confidence, and UI jump targets.
+- Workflow visibility: `research_pipeline_runs`, `research_pipeline_steps`, progress UI, and PDF-aligned `research_runs` / `research_steps` views.
+- Retrieval and performance: pgvector retrieval, lexical fallback, hybrid collection retrieval, reusable Q&A cache, token estimates, provider latency, and analytics dashboard.
+- Productivity UX: global search, command palette, keyboard shortcut support, pinned answers, saved workspace panels, responsive layouts, and progressive loading states.
+- Production hardening: persistent rate limits, action records, CSP/security headers, local secret isolation, and documented dependency advisory tracking.
 
 ## Configuration
 

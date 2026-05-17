@@ -3,15 +3,22 @@ import { z } from "zod";
 import { enforceRateLimit } from "@/lib/api/rate-limit";
 import { fail, ok, unknownFail, validationFail } from "@/lib/api/response";
 import {
+  attachDocumentToCollection,
   attachProjectToCollection,
   getResearchContext,
 } from "@/lib/research/repository";
 
 export const runtime = "nodejs";
 
-const requestSchema = z.object({
-  projectId: z.string().min(1),
-});
+const requestSchema = z
+  .object({
+    projectId: z.string().min(1).optional(),
+    documentId: z.string().min(1).optional(),
+  })
+  .refine((value) => Boolean(value.projectId || value.documentId), {
+    message: "Provide projectId or documentId.",
+    path: ["projectId"],
+  });
 
 export async function POST(
   request: NextRequest,
@@ -36,11 +43,9 @@ export async function POST(
       return fail("unauthorized", "Sign in to add documents.", 401);
     }
 
-    const document = await attachProjectToCollection(
-      ctx,
-      id,
-      parsed.data.projectId,
-    );
+    const document = parsed.data.projectId
+      ? await attachProjectToCollection(ctx, id, parsed.data.projectId)
+      : await attachDocumentToCollection(ctx, id, parsed.data.documentId as string);
 
     if (!document) {
       return fail("not_found", "Project or collection not found.", 404);

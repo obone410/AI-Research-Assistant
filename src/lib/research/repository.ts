@@ -166,6 +166,7 @@ function mapCollection(row: DbRow): ResearchCollection {
     id: row.id as string,
     name: row.name as string,
     description: row.description as string | null,
+    ownerProjectId: row.owner_project_id as string | null,
     projectCount: Number(row.project_count ?? 0),
     documentCount: Number(row.document_count ?? 0),
     createdAt: row.created_at as string,
@@ -412,18 +413,25 @@ export async function createResearchCollection(
   ctx: ResearchContext,
   name: string,
   description?: string | null,
+  ownerProjectId?: string | null,
 ) {
   if (ctx.mode === "demo") {
     return createDemoCollection(name, description);
   }
 
+  const values: Record<string, unknown> = {
+    user_id: ctx.user.id,
+    name,
+    description: description ?? null,
+  };
+
+  if (ownerProjectId) {
+    values.owner_project_id = ownerProjectId;
+  }
+
   const { data, error } = await ctx.supabase
     .from("research_collections")
-    .insert({
-      user_id: ctx.user.id,
-      name,
-      description: description ?? null,
-    })
+    .insert(values)
     .select("*")
     .single();
 
@@ -436,7 +444,7 @@ export async function createResearchCollection(
     action: "collection.create",
     targetType: "collection",
     targetId: collection.id,
-    metadata: { name: collection.name },
+    metadata: { name: collection.name, ownerProjectId: ownerProjectId ?? null },
   });
 
   return collection;
@@ -562,6 +570,35 @@ export async function attachProjectToCollection(
   });
 
   return document;
+}
+
+export async function attachDocumentToCollection(
+  ctx: ResearchContext,
+  collectionId: string,
+  documentId: string,
+) {
+  if (ctx.mode === "demo") {
+    const project = listDemoProjects().find((item) =>
+      getDemoProject(item.id)?.documents.some((document) => document.id === documentId),
+    );
+    return project ? attachDemoProjectToCollection(collectionId, project.id) : null;
+  }
+
+  const { data, error } = await ctx.supabase
+    .from("documents")
+    .select("project_id")
+    .eq("id", documentId)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  if (!data?.project_id) {
+    return null;
+  }
+
+  return attachProjectToCollection(ctx, collectionId, data.project_id as string);
 }
 
 async function refreshCollectionCounts(ctx: ResearchContext, collectionId: string) {
@@ -833,6 +870,61 @@ export async function getEntityDetail(
       ? mapCollection(collectionResult.data)
       : null,
   };
+}
+
+export async function listKnowledgeEntities(
+  ctx: ResearchContext,
+  input: {
+    collectionId?: string | null;
+    query?: string | null;
+  } = {},
+): Promise<KnowledgeEntity[]> {
+  const search = input.query?.toLowerCase().trim();
+
+  if (ctx.mode === "demo") {
+    const entities = listDemoCollections().flatMap((collection) =>
+      getDemoCollection(collection.id).entities,
+    );
+    return entities.filter((entity) => {
+      if (input.collectionId && entity.collectionId !== input.collectionId) {
+        return false;
+      }
+
+      if (!search) {
+        return true;
+      }
+
+      return `${entity.name} ${entity.type} ${entity.summary}`
+        .toLowerCase()
+        .includes(search);
+    });
+  }
+
+  let query = ctx.supabase
+    .from("knowledge_entities")
+    .select("*")
+    .order("created_at", { ascending: false })
+    .limit(100);
+
+  if (input.collectionId) {
+    query = query.eq("collection_id", input.collectionId);
+  }
+
+  const { data, error } = await query;
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  const entities = (data ?? []).map(mapKnowledgeEntity);
+  if (!search) {
+    return entities;
+  }
+
+  return entities.filter((entity) =>
+    `${entity.name} ${entity.type} ${entity.summary}`
+      .toLowerCase()
+      .includes(search),
+  );
 }
 
 export async function createProjectFromDocument(

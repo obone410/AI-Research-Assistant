@@ -80,6 +80,8 @@ Apply the migrations in `supabase/migrations` in order. `0001_researchos.sql` cr
 
 `0004_production_hardening.sql` adds persistent API rate-limit buckets, action records for important research operations, and the `check_rate_limit(...)` RPC used by server routes.
 
+`0005_pdf_schema_alignment.sql` adds the PDF-requested `owner_project_id` relationship plus `research_runs` and `research_steps` compatibility views.
+
 ## API Routes
 
 - `POST /api/upload-document`
@@ -97,10 +99,12 @@ Apply the migrations in `supabase/migrations` in order. `0001_researchos.sql` cr
 - `POST /api/collections`
 - `GET /api/collections/:id`
 - `POST /api/collections/:id/documents`
+- `POST /api/collections/:id/add-document`
 - `POST /api/collections/:id/synthesize`
 - `POST /api/collections/:id/knowledge`
 - `POST /api/collections/:id/chat`
 - `GET /api/entities?collectionId=...`
+- `GET /api/entities?query=...`
 - `GET /api/entities/:id`
 - `GET /api/analytics`
 
