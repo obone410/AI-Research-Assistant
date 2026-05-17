@@ -229,6 +229,60 @@ export function demoSynthesis(
       "Extract entities and claims immediately after ingestion so later chats can reuse them.",
       "Pin high-value answers and include them in exports.",
     ],
+    confidenceScore: citations.length ? 0.74 : 0.42,
+    evidenceStrength: citations.length >= 3 ? "strong" : "moderate",
+    sourceReliability: [
+      {
+        source: hits[0]?.projectTitle ?? "Primary source",
+        score: citations.length ? 0.78 : 0.45,
+        rationale:
+          "The source provides directly retrieved text chunks that support the generated report.",
+      },
+      {
+        source: hits[1]?.projectTitle ?? "Supporting source",
+        score: citations.length > 1 ? 0.7 : 0.4,
+        rationale:
+          "The source adds implementation detail, but deeper confirmation would improve confidence.",
+      },
+    ],
+    hypotheses: [
+      "Research teams will trust the workspace more when every generated claim can be inspected through source chunks.",
+      "Entity clusters can become reusable research memory for future reports and chat sessions.",
+    ],
+    claimValidation: [
+      {
+        claim:
+          "Citation-first workflows improve confidence in AI-generated research outputs.",
+        status: citations.length ? "supported" : "unanswered",
+        explanation:
+          "The available demo context repeatedly connects citations, retrieval, and verification.",
+        citations: citations.slice(0, 2),
+      },
+    ],
+    unansweredQuestions: [
+      "Which sources should receive a deeper reliability review?",
+      "What external evidence would strengthen the highest-impact claims?",
+    ],
+    conflictingEvidence: [
+      {
+        topic: "Depth versus speed",
+        explanation:
+          "Fast briefings can omit nuance that source-by-source comparison surfaces.",
+        citations: citations.slice(0, 2),
+      },
+    ],
+    missingTopics: [
+      "User collaboration workflows",
+      "OCR strategy for scanned PDFs",
+    ],
+    emergingTrends: [
+      "Research memory is moving from static notes toward AI-updated source maps.",
+      "Knowledge graph navigation makes multi-document exploration easier to reuse.",
+    ],
+    suggestedInvestigations: [
+      "Validate the highest-confidence claims against additional source documents.",
+      "Create a saved session around unresolved contradictions and follow-up questions.",
+    ],
     citations,
     confidence: citations.length ? "medium" : "low",
   };

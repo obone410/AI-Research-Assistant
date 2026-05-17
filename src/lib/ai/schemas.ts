@@ -100,6 +100,13 @@ export const synthesisReportKindSchema = z.enum([
   "opportunity_analysis",
   "key_takeaways",
   "recommendation_summary",
+  "confidence_report",
+  "hypothesis_generation",
+  "claim_validation",
+  "evidence_summary",
+  "strategic_insight_report",
+  "analytical_briefing",
+  "collection_comparison_report",
 ]);
 
 export const synthesisReportSchema = z.object({
@@ -129,6 +136,41 @@ export const synthesisReportSchema = z.object({
     }),
   ),
   recommendations: z.array(z.string()),
+  confidenceScore: z.number().min(0).max(1).default(0.68),
+  evidenceStrength: z.enum(["weak", "moderate", "strong"]).default("moderate"),
+  sourceReliability: z
+    .array(
+      z.object({
+        source: z.string(),
+        score: z.number().min(0).max(1),
+        rationale: z.string(),
+      }),
+    )
+    .default([]),
+  hypotheses: z.array(z.string()).default([]),
+  claimValidation: z
+    .array(
+      z.object({
+        claim: z.string(),
+        status: z.enum(["supported", "conflicting", "unanswered"]),
+        explanation: z.string(),
+        citations: z.array(citationSchema).default([]),
+      }),
+    )
+    .default([]),
+  unansweredQuestions: z.array(z.string()).default([]),
+  conflictingEvidence: z
+    .array(
+      z.object({
+        topic: z.string(),
+        explanation: z.string(),
+        citations: z.array(citationSchema).default([]),
+      }),
+    )
+    .default([]),
+  missingTopics: z.array(z.string()).default([]),
+  emergingTrends: z.array(z.string()).default([]),
+  suggestedInvestigations: z.array(z.string()).default([]),
   citations: z.array(citationSchema),
   confidence: z.enum(["low", "medium", "high"]),
 });

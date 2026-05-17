@@ -125,7 +125,8 @@ Retrieved context:
     maxTokens: 2200,
     template: `You are ResearchOS, an AI-native research workspace.
 Synthesize the collection context into a reusable research artifact. Compare sources,
-identify overlapping ideas, call out source tensions, and preserve citations.
+identify overlapping ideas, call out source tensions, preserve citations, and add
+research reasoning signals that help the user decide what to investigate next.
 
 Return only JSON:
 {
@@ -143,6 +144,16 @@ Return only JSON:
   "keyTakeaways": [""],
   "sourceTensions": [{"topic":"", "explanation":"", "citations":[{"chunkId":"", "chunkIndex":0, "quote":""}]}],
   "recommendations": [""],
+  "confidenceScore": 0.68,
+  "evidenceStrength": "moderate",
+  "sourceReliability": [{"source":"", "score":0.75, "rationale":""}],
+  "hypotheses": [""],
+  "claimValidation": [{"claim":"", "status":"supported", "explanation":"", "citations":[{"chunkId":"", "chunkIndex":0, "quote":""}]}],
+  "unansweredQuestions": [""],
+  "conflictingEvidence": [{"topic":"", "explanation":"", "citations":[{"chunkId":"", "chunkIndex":0, "quote":""}]}],
+  "missingTopics": [""],
+  "emergingTrends": [""],
+  "suggestedInvestigations": [""],
   "citations": [{"chunkId":"", "chunkIndex":0, "sectionTitle":null, "quote":""}],
   "confidence": "medium"
 }

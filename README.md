@@ -13,6 +13,10 @@ ResearchOS is a portfolio-grade AI research intelligence workspace built with Ne
 - Multi-document collections with unified reports, source comparisons, executive briefs, trend analysis, and research gap workflows.
 - Knowledge extraction for entities, linked insights, and source-backed claims.
 - Collection notes, source removal, contradiction analysis, opportunity analysis, key takeaways, and recommendation summaries.
+- Interactive D3 knowledge graph with zoom, pan, entity inspection, relationship strength, and related source views.
+- Advanced reasoning reports for confidence, hypotheses, claim validation, evidence summaries, strategic insights, analytical briefings, and collection comparisons.
+- Improved RAG retrieval with query rewriting, hybrid reranking, duplicate reduction, and contextual compression.
+- Proactive research intelligence dashboard with suggested questions, contradiction alerts, trending concepts, activity timeline, and saved research sessions.
 - Usage analytics for token estimates, provider mix, processing time, and retrieval efficiency.
 - Persistent Supabase-backed rate limits and action records when the service role key is configured.
 - Research workspace UI with document viewer, notes, highlights, pinned answers, collection chat, command palette, and Markdown/JSON exports.
@@ -47,6 +51,9 @@ flowchart LR
     Outputs --> QA["Cited Q&A"]
     Outputs --> Synthesis["Multi-Document Synthesis"]
     Outputs --> Knowledge["Entities / Claims / Relationships"]
+    Knowledge --> Graph["Interactive Knowledge Graph"]
+    Outputs --> Reasoning["Confidence / Hypotheses / Evidence Reports"]
+    Outputs --> Sessions["Saved Research Sessions"]
     Outputs --> Analytics["Usage Analytics + Action Records"]
 ```
 
@@ -59,6 +66,7 @@ erDiagram
     research_projects ||--o{ research_runs : executes
     research_collections ||--o{ collection_documents : includes
     research_collections ||--o{ collection_notes : captures
+    research_collections ||--o{ research_sessions : remembers
     research_collections }o--|| research_projects : owner_project
     documents ||--o{ document_chunks : has
     documents ||--o{ document_entities : mentions
@@ -68,6 +76,7 @@ erDiagram
     knowledge_entities ||--o{ entity_relationships : relates
     research_runs ||--o{ research_steps : consists_of
     research_runs ||--o{ research_run_steps : tracks
+    research_sessions ||--o{ research_session_findings : contains
     collection_documents }o--|| documents : doc
 ```
 
@@ -139,6 +148,8 @@ Apply the migrations in `supabase/migrations` in order. `0001_researchos.sql` cr
 
 `0006_research_workspace_upgrade.sql` adds `collection_notes`, expands synthesis report kinds, and exposes `entity_documents` / `research_run_steps` compatibility views.
 
+`0007_interactive_research_intelligence.sql` expands advanced reasoning report kinds and adds `research_sessions` plus `research_session_findings` for persistent investigation memory.
+
 ## API Routes
 
 - `POST /api/upload-document`
@@ -163,6 +174,8 @@ Apply the migrations in `supabase/migrations` in order. `0001_researchos.sql` cr
 - `POST /api/collections/:id/synthesize`
 - `POST /api/collections/:id/knowledge`
 - `POST /api/collections/:id/chat`
+- `GET /api/collections/:id/sessions`
+- `POST /api/collections/:id/sessions`
 - `GET /api/entities?collectionId=...`
 - `GET /api/entities?query=...`
 - `GET /api/entities/:id`

@@ -175,6 +175,20 @@ export function buildCollectionMarkdownReport(collection: CollectionDetail) {
   }
 
   lines.push("");
+  lines.push("## Research Sessions");
+  lines.push("");
+  for (const session of collection.sessions) {
+    lines.push(`### ${session.title}`);
+    lines.push("");
+    lines.push(session.summary ?? "No session summary saved.");
+    lines.push("");
+    for (const finding of session.findings) {
+      lines.push(`- **${finding.findingType}:** ${finding.title} - ${finding.body}`);
+    }
+    lines.push("");
+  }
+
+  lines.push("");
   lines.push("## Collection Q&A");
   lines.push("");
   for (const message of collection.qa.slice(0, 8)) {
@@ -212,6 +226,7 @@ export function buildCollectionJsonReport(collection: CollectionDetail) {
       relationships: collection.relationships,
       insights: collection.insights,
       claims: collection.claims,
+      sessions: collection.sessions,
       qa: collection.qa,
       citations: [
         ...collection.reports.flatMap((report) => report.citations),

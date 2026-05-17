@@ -30,11 +30,13 @@ import {
   X,
 } from "lucide-react";
 import clsx from "clsx";
+import { KnowledgeGraph } from "@/components/knowledge-graph";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import type {
   Citation,
   CollectionDetail,
   DocumentChunk,
+  KnowledgeEntity,
   ProjectDetail,
   ResearchCollection,
   ResearchProject,
@@ -53,7 +55,13 @@ type ApiEnvelope<T> = {
   error?: { message: string };
 };
 
-type WorkspaceView = "project" | "collections" | "knowledge" | "chat" | "analytics";
+type WorkspaceView =
+  | "project"
+  | "collections"
+  | "knowledge"
+  | "chat"
+  | "intelligence"
+  | "analytics";
 
 type SummaryOutput = {
   title?: string;
@@ -111,6 +119,29 @@ type SynthesisOutput = {
     citations: Citation[];
   }>;
   recommendations?: string[];
+  confidenceScore?: number;
+  evidenceStrength?: "weak" | "moderate" | "strong";
+  sourceReliability?: Array<{
+    source: string;
+    score: number;
+    rationale: string;
+  }>;
+  hypotheses?: string[];
+  claimValidation?: Array<{
+    claim: string;
+    status: "supported" | "conflicting" | "unanswered";
+    explanation: string;
+    citations?: Citation[];
+  }>;
+  unansweredQuestions?: string[];
+  conflictingEvidence?: Array<{
+    topic: string;
+    explanation: string;
+    citations?: Citation[];
+  }>;
+  missingTopics?: string[];
+  emergingTrends?: string[];
+  suggestedInvestigations?: string[];
   citations?: Citation[];
   confidence?: string;
 };
@@ -154,6 +185,13 @@ function labelFromKind(kind: SynthesisReportKind) {
     opportunity_analysis: "Opportunities",
     key_takeaways: "Key Takeaways",
     recommendation_summary: "Recommendations",
+    confidence_report: "Confidence Report",
+    hypothesis_generation: "Hypotheses",
+    claim_validation: "Claim Validation",
+    evidence_summary: "Evidence Summary",
+    strategic_insight_report: "Strategic Insights",
+    analytical_briefing: "Analytical Briefing",
+    collection_comparison_report: "Collection Report",
   }[kind];
 }
 
@@ -172,6 +210,16 @@ const analystReportKinds: SynthesisReportKind[] = [
   "recommendation_summary",
 ];
 
+const reasoningReportKinds: SynthesisReportKind[] = [
+  "confidence_report",
+  "hypothesis_generation",
+  "claim_validation",
+  "evidence_summary",
+  "strategic_insight_report",
+  "analytical_briefing",
+  "collection_comparison_report",
+];
+
 function confidenceClass(confidence?: string) {
   if (confidence === "high") {
     return "border-emerald-300 bg-emerald-50 text-emerald-800";
@@ -182,6 +230,26 @@ function confidenceClass(confidence?: string) {
   }
 
   return "border-sky-300 bg-sky-50 text-sky-800";
+}
+
+function confidencePercent(output: SynthesisOutput) {
+  if (typeof output.confidenceScore === "number") {
+    return Math.round(output.confidenceScore * 100);
+  }
+
+  if (output.confidence === "high") {
+    return 82;
+  }
+
+  if (output.confidence === "low") {
+    return 38;
+  }
+
+  return 64;
+}
+
+function entityMatchesText(entity: KnowledgeEntity, text: string) {
+  return text.toLowerCase().includes(entity.name.toLowerCase());
 }
 
 function citationTitle(citation: Citation) {
@@ -260,6 +328,7 @@ export function ResearchWorkspace({
   const [activeProject, setActiveProject] = useState<ProjectDetail | null>(null);
   const [activeCollection, setActiveCollection] =
     useState<CollectionDetail | null>(null);
+  const [selectedEntityId, setSelectedEntityId] = useState<string | null>(null);
   const [analytics, setAnalytics] = useState<UsageAnalytics | null>(null);
   const [workspaceView, setWorkspaceView] = useState<WorkspaceView>("project");
   const [activeTab, setActiveTab] = useState<"summary" | "insights" | "keywords">(
@@ -296,6 +365,114 @@ export function ResearchWorkspace({
     activeCollection?.qa[0]?.citations.length
       ? activeCollection.qa[0].citations
       : latestReport?.citations ?? [];
+  const selectedEntity =
+    activeCollection?.entities.find((entity) => entity.id === selectedEntityId) ??
+    activeCollection?.entities[0] ??
+    null;
+  const relatedDocuments = selectedEntity
+    ? activeCollection?.documentEntities.filter(
+        (item) => item.entityId === selectedEntity.id,
+      ) ?? []
+    : [];
+  const relatedRelationships = selectedEntity
+    ? activeCollection?.relationships.filter(
+        (item) =>
+          item.sourceEntityId === selectedEntity.id ||
+          item.targetEntityId === selectedEntity.id,
+      ) ?? []
+    : [];
+  const relatedInsights = selectedEntity
+    ? activeCollection?.insights.filter((insight) =>
+        entityMatchesText(selectedEntity, `${insight.title} ${insight.body}`),
+      ) ?? []
+    : activeCollection?.insights.slice(0, 4) ?? [];
+  const relatedClaims = selectedEntity
+    ? activeCollection?.claims.filter((claim) =>
+        entityMatchesText(selectedEntity, `${claim.claim} ${claim.evidence}`),
+      ) ?? []
+    : activeCollection?.claims.slice(0, 4) ?? [];
+  const trendingEntities =
+    activeCollection?.entities
+      .slice()
+      .sort((a, b) => b.mentions - a.mentions)
+      .slice(0, 6) ?? [];
+  const recentlyDiscoveredConcepts =
+    activeCollection?.entities
+      .slice()
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+      .slice(0, 6) ?? [];
+  const proactiveQuestions = Array.from(
+    new Set([
+      ...(latestSynthesis.recommendedNextQuestions ?? []),
+      ...(latestSynthesis.unansweredQuestions ?? []),
+      ...relatedClaims.slice(0, 2).map((claim) => `Validate: ${claim.claim}`),
+    ]),
+  ).slice(0, 6);
+  const proactiveSuggestions = Array.from(
+    new Set([
+      ...(latestSynthesis.suggestedInvestigations ?? []),
+      ...(latestSynthesis.missingTopics ?? []).map(
+        (topic) => `Add a source that covers ${topic}.`,
+      ),
+      ...relatedRelationships
+        .slice(0, 3)
+        .map(
+          (relationship) =>
+            `Explore ${relationship.sourceName} ${relationship.relation} ${relationship.targetName}.`,
+        ),
+    ]),
+  ).slice(0, 6);
+  const contradictionAlerts = [
+    ...(latestSynthesis.conflictingEvidence ?? []).map((item) => ({
+      title: item.topic,
+      body: item.explanation,
+    })),
+    ...(latestSynthesis.sourceTensions ?? []).map((item) => ({
+      title: item.topic,
+      body: item.explanation,
+    })),
+    ...(activeCollection?.claims ?? [])
+      .filter((claim) => claim.stance === "challenges")
+      .slice(0, 3)
+      .map((claim) => ({
+        title: "Challenged claim",
+        body: claim.claim,
+      })),
+  ].slice(0, 6);
+  const activityFeed = [
+    ...(activeCollection?.reports ?? []).map((report) => ({
+      id: `report-${report.id}`,
+      label: labelFromKind(report.kind),
+      title: report.title,
+      createdAt: report.createdAt,
+    })),
+    ...(activeCollection?.qa ?? []).map((message) => ({
+      id: `qa-${message.id}`,
+      label: "Research Chat",
+      title: message.question,
+      createdAt: message.createdAt,
+    })),
+    ...(activeCollection?.notes ?? []).map((note) => ({
+      id: `note-${note.id}`,
+      label: "Saved Note",
+      title: note.title,
+      createdAt: note.createdAt,
+    })),
+    ...(activeCollection?.pipelineRuns ?? []).map((run) => ({
+      id: `run-${run.id}`,
+      label: "Pipeline",
+      title: run.name,
+      createdAt: run.createdAt,
+    })),
+    ...(activeCollection?.sessions ?? []).map((session) => ({
+      id: `session-${session.id}`,
+      label: "Research Session",
+      title: session.title,
+      createdAt: session.updatedAt,
+    })),
+  ]
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+    .slice(0, 10);
 
   const filteredProjects = projects.filter((project) =>
     project.title.toLowerCase().includes(searchQuery.toLowerCase()),
@@ -786,7 +963,9 @@ export function ResearchWorkspace({
       });
       await loadCollection(activeCollection.id);
       await loadAnalytics();
-      setWorkspaceView("collections");
+      setWorkspaceView(
+        reasoningReportKinds.includes(kind) ? "intelligence" : "collections",
+      );
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Report failed.");
     } finally {
@@ -848,6 +1027,61 @@ export function ResearchWorkspace({
     } finally {
       setBusyAction(null);
       setSteps([]);
+    }
+  }
+
+  async function saveInvestigationSession() {
+    if (!activeCollection) {
+      return;
+    }
+
+    setBusyAction("save-session");
+    setError("");
+
+    try {
+      const findings = [
+        ...(latestSynthesis.keyTakeaways ?? []).slice(0, 2).map((item) => ({
+          findingType: "takeaway",
+          title: "Key takeaway",
+          body: item,
+          citations: latestCollectionCitations.slice(0, 2),
+          confidence: latestSynthesis.confidence === "high" ? "high" : "medium",
+        })),
+        ...contradictionAlerts.slice(0, 2).map((alert) => ({
+          findingType: "contradiction",
+          title: alert.title,
+          body: alert.body,
+          citations: latestCollectionCitations.slice(0, 2),
+          confidence: "medium",
+        })),
+      ];
+
+      await requestJson(`/api/collections/${activeCollection.id}/sessions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: `${activeCollection.name} research session`,
+          summary:
+            latestSynthesis.overview ??
+            latestSynthesis.combinedSummary ??
+            "Saved multi-document investigation context.",
+          memory: {
+            activeReport: latestReport?.id ?? null,
+            selectedEntity: selectedEntity?.name ?? null,
+            suggestedQuestions: proactiveQuestions,
+            suggestedInvestigations: proactiveSuggestions,
+          },
+          findings,
+        }),
+      });
+      await loadCollection(activeCollection.id);
+      setWorkspaceView("intelligence");
+    } catch (nextError) {
+      setError(
+        nextError instanceof Error ? nextError.message : "Session save failed.",
+      );
+    } finally {
+      setBusyAction(null);
     }
   }
 
@@ -913,6 +1147,7 @@ export function ResearchWorkspace({
     { id: "collections", label: "Collections", icon: Layers3 },
     { id: "knowledge", label: "Knowledge", icon: Network },
     { id: "chat", label: "Research Chat", icon: MessageSquareText },
+    { id: "intelligence", label: "Intelligence", icon: Activity },
     { id: "analytics", label: "Analytics", icon: BarChart3 },
   ];
 
@@ -1270,7 +1505,7 @@ export function ResearchWorkspace({
                     ) : null}
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    {[...coreReportKinds, ...analystReportKinds].map((kind) => (
+                    {[...coreReportKinds, ...analystReportKinds, ...reasoningReportKinds].map((kind) => (
                       <button
                         key={kind}
                         type="button"
@@ -1343,6 +1578,34 @@ export function ResearchWorkspace({
                         <p className="text-sm leading-6 text-slate-700">
                           {latestSynthesis.overview ?? latestSynthesis.combinedSummary}
                         </p>
+                        <div className="grid gap-3 md:grid-cols-3">
+                          <div className="border border-slate-200 bg-slate-50 p-3">
+                            <p className="text-xs uppercase tracking-[0.14em] text-slate-500">
+                              Confidence
+                            </p>
+                            <p className="mt-2 text-2xl font-semibold">
+                              {confidencePercent(latestSynthesis)}%
+                            </p>
+                          </div>
+                          <div className="border border-slate-200 bg-slate-50 p-3">
+                            <p className="text-xs uppercase tracking-[0.14em] text-slate-500">
+                              Evidence Strength
+                            </p>
+                            <p className="mt-2 text-lg font-semibold capitalize">
+                              {latestSynthesis.evidenceStrength ?? "moderate"}
+                            </p>
+                          </div>
+                          <div className="border border-slate-200 bg-slate-50 p-3">
+                            <p className="text-xs uppercase tracking-[0.14em] text-slate-500">
+                              Source Coverage
+                            </p>
+                            <p className="mt-2 text-lg font-semibold">
+                              {(latestSynthesis.sourceReliability ?? []).length ||
+                                activeCollection?.documents.length ||
+                                0}
+                            </p>
+                          </div>
+                        </div>
                         <div className="space-y-2">
                           {(latestSynthesis.overlappingIdeas ?? []).map((idea) => (
                             <p
@@ -1430,6 +1693,107 @@ export function ResearchWorkspace({
                             </div>
                           </div>
                         ) : null}
+                        {[
+                          ["Hypotheses", latestSynthesis.hypotheses],
+                          ["Unanswered Questions", latestSynthesis.unansweredQuestions],
+                          ["Missing Topics", latestSynthesis.missingTopics],
+                          ["Emerging Trends", latestSynthesis.emergingTrends],
+                          [
+                            "Suggested Investigations",
+                            latestSynthesis.suggestedInvestigations,
+                          ],
+                        ].some(([, items]) => (items as string[] | undefined)?.length) ? (
+                          <div className="grid gap-3 md:grid-cols-2">
+                            {[
+                              ["Hypotheses", latestSynthesis.hypotheses],
+                              [
+                                "Unanswered Questions",
+                                latestSynthesis.unansweredQuestions,
+                              ],
+                              ["Missing Topics", latestSynthesis.missingTopics],
+                              ["Emerging Trends", latestSynthesis.emergingTrends],
+                              [
+                                "Suggested Investigations",
+                                latestSynthesis.suggestedInvestigations,
+                              ],
+                            ].map(([label, items]) =>
+                              (items as string[] | undefined)?.length ? (
+                                <div
+                                  key={label as string}
+                                  className="border border-slate-200 bg-white p-3"
+                                >
+                                  <h4 className="text-sm font-semibold">
+                                    {label as string}
+                                  </h4>
+                                  <div className="mt-2 space-y-2">
+                                    {(items as string[]).map((item) => (
+                                      <p
+                                        key={item}
+                                        className="text-sm leading-5 text-slate-700"
+                                      >
+                                        {item}
+                                      </p>
+                                    ))}
+                                  </div>
+                                </div>
+                              ) : null,
+                            )}
+                          </div>
+                        ) : null}
+                        {(latestSynthesis.claimValidation ?? []).length ? (
+                          <div>
+                            <h4 className="text-sm font-semibold">
+                              Claim Validation
+                            </h4>
+                            <div className="mt-2 space-y-2">
+                              {(latestSynthesis.claimValidation ?? []).map((item) => (
+                                <article
+                                  key={`${item.claim}-${item.status}`}
+                                  className="border border-slate-200 bg-white p-3"
+                                >
+                                  <div className="flex flex-wrap gap-2">
+                                    <span className="border border-slate-300 bg-slate-50 px-2 py-1 text-xs capitalize">
+                                      {item.status}
+                                    </span>
+                                  </div>
+                                  <p className="mt-2 text-sm font-semibold">
+                                    {item.claim}
+                                  </p>
+                                  <p className="mt-1 text-sm leading-5 text-slate-700">
+                                    {item.explanation}
+                                  </p>
+                                </article>
+                              ))}
+                            </div>
+                          </div>
+                        ) : null}
+                        {(latestSynthesis.sourceReliability ?? []).length ? (
+                          <div>
+                            <h4 className="text-sm font-semibold">
+                              Source Reliability
+                            </h4>
+                            <div className="mt-2 grid gap-2 md:grid-cols-2">
+                              {(latestSynthesis.sourceReliability ?? []).map((item) => (
+                                <article
+                                  key={item.source}
+                                  className="border border-slate-200 bg-slate-50 p-3"
+                                >
+                                  <div className="flex items-center justify-between gap-3">
+                                    <p className="text-sm font-semibold">
+                                      {item.source}
+                                    </p>
+                                    <span className="text-xs text-slate-500">
+                                      {Math.round(item.score * 100)}%
+                                    </span>
+                                  </div>
+                                  <p className="mt-2 text-xs leading-5 text-slate-600">
+                                    {item.rationale}
+                                  </p>
+                                </article>
+                              ))}
+                            </div>
+                          </div>
+                        ) : null}
                       </>
                     ) : (
                       <EmptyState title="Generate a report from this collection." />
@@ -1504,6 +1868,135 @@ export function ResearchWorkspace({
                 </div>
               </div>
 
+              <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
+                <KnowledgeGraph
+                  collection={activeCollection}
+                  selectedEntityId={selectedEntity?.id ?? null}
+                  onSelectEntity={setSelectedEntityId}
+                />
+
+                <section className="border border-slate-300 bg-white">
+                  <div className="border-b border-slate-200 px-4 py-3">
+                    <h2 className="font-semibold">Entity Inspector</h2>
+                  </div>
+                  <div className="max-h-[32rem] space-y-4 overflow-auto p-4">
+                    {selectedEntity ? (
+                      <>
+                        <div>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <h3 className="text-lg font-semibold">
+                              {selectedEntity.name}
+                            </h3>
+                            <span className="border border-slate-300 bg-slate-50 px-2 py-1 text-xs">
+                              {selectedEntity.type}
+                            </span>
+                            <span
+                              className={clsx(
+                                "border px-2 py-1 text-xs",
+                                confidenceClass(selectedEntity.confidence),
+                              )}
+                            >
+                              {selectedEntity.confidence}
+                            </span>
+                          </div>
+                          <p className="mt-3 text-sm leading-6 text-slate-700">
+                            {selectedEntity.summary}
+                          </p>
+                        </div>
+
+                        <div>
+                          <h4 className="text-sm font-semibold">
+                            Related Documents
+                          </h4>
+                          <div className="mt-2 space-y-2">
+                            {relatedDocuments.slice(0, 5).map((document) => (
+                              <div
+                                key={document.id}
+                                className="border border-slate-200 bg-slate-50 p-3"
+                              >
+                                <p className="text-sm font-medium">
+                                  {document.entityName}
+                                </p>
+                                <p className="mt-1 text-xs leading-5 text-slate-600">
+                                  {document.context ?? "Mentioned in source document."}
+                                </p>
+                              </div>
+                            ))}
+                            {!relatedDocuments.length ? (
+                              <EmptyState title="No document links found for this entity." />
+                            ) : null}
+                          </div>
+                        </div>
+
+                        <div>
+                          <h4 className="text-sm font-semibold">
+                            Relationship Explorer
+                          </h4>
+                          <div className="mt-2 space-y-2">
+                            {relatedRelationships.slice(0, 6).map((relationship) => (
+                              <article
+                                key={relationship.id}
+                                className="border border-slate-200 bg-white p-3"
+                              >
+                                <p className="text-sm font-semibold">
+                                  {relationship.sourceName} {relationship.relation}{" "}
+                                  {relationship.targetName}
+                                </p>
+                                <div className="mt-2 h-2 bg-slate-100">
+                                  <div
+                                    className="h-2 bg-slate-950"
+                                    style={{
+                                      width: `${Math.max(
+                                        8,
+                                        Math.round(relationship.strength * 100),
+                                      )}%`,
+                                    }}
+                                  />
+                                </div>
+                                {relationship.evidence ? (
+                                  <p className="mt-2 text-xs leading-5 text-slate-600">
+                                    {relationship.evidence}
+                                  </p>
+                                ) : null}
+                              </article>
+                            ))}
+                            {!relatedRelationships.length ? (
+                              <EmptyState title="No relationships selected." />
+                            ) : null}
+                          </div>
+                        </div>
+
+                        <div>
+                          <h4 className="text-sm font-semibold">
+                            Linked Insights
+                          </h4>
+                          <div className="mt-2 space-y-2">
+                            {relatedInsights.slice(0, 4).map((insight) => (
+                              <article
+                                key={insight.id}
+                                className="border border-slate-200 bg-slate-50 p-3"
+                              >
+                                <p className="text-sm font-semibold">
+                                  {insight.title}
+                                </p>
+                                <p className="mt-1 text-xs leading-5 text-slate-600">
+                                  {insight.body}
+                                </p>
+                              </article>
+                            ))}
+                            {!relatedInsights.length ? (
+                              <EmptyState title="No linked insights found for this entity." />
+                            ) : null}
+                          </div>
+                        </div>
+                      </>
+                    ) : (
+                      <EmptyState title="Select an entity in the graph." />
+                    )}
+                  </div>
+                </section>
+              </div>
+
               <div className="grid gap-4 xl:grid-cols-[340px_minmax(0,1fr)]">
                 <section className="border border-slate-300 bg-white">
                   <div className="border-b border-slate-200 px-4 py-3">
@@ -1511,9 +2004,16 @@ export function ResearchWorkspace({
                   </div>
                   <div className="max-h-[38rem] overflow-auto p-3">
                     {activeCollection?.entities.map((entity) => (
-                      <article
+                      <button
                         key={entity.id}
-                        className="mb-2 border border-slate-200 bg-slate-50 p-3"
+                        type="button"
+                        onClick={() => setSelectedEntityId(entity.id)}
+                        className={clsx(
+                          "mb-2 block w-full border p-3 text-left",
+                          selectedEntity?.id === entity.id
+                            ? "border-slate-950 bg-white"
+                            : "border-slate-200 bg-slate-50 hover:bg-white",
+                        )}
                       >
                         <div className="flex items-start justify-between gap-3">
                           <h3 className="text-sm font-semibold">{entity.name}</h3>
@@ -1527,7 +2027,7 @@ export function ResearchWorkspace({
                         <p className="mt-2 text-xs text-slate-500">
                           {entity.mentions} mentions
                         </p>
-                      </article>
+                      </button>
                     ))}
                     {!activeCollection?.entities.length ? (
                       <EmptyState title="No entities extracted yet." />
@@ -1735,6 +2235,285 @@ export function ResearchWorkspace({
                   ) : null}
                 </div>
               </section>
+            </section>
+          ) : null}
+
+          {workspaceView === "intelligence" ? (
+            <section className="space-y-4">
+              <div className="border border-slate-300 bg-white p-4">
+                <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.18em] text-slate-500">
+                      Live Research Workspace Insights
+                    </p>
+                    <h2 className="mt-1 text-2xl font-semibold">
+                      Research Intelligence
+                    </h2>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={saveInvestigationSession}
+                    disabled={!activeCollection || busyAction === "save-session"}
+                    className="inline-flex items-center justify-center gap-2 bg-slate-950 px-3 py-2 text-sm font-semibold text-white disabled:opacity-50"
+                  >
+                    {busyAction === "save-session" ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <NotebookPen className="h-4 w-4" />
+                    )}
+                    Save session
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid gap-3 md:grid-cols-4">
+                <MetricTile
+                  label="Confidence"
+                  value={`${confidencePercent(latestSynthesis)}%`}
+                  tone="emerald"
+                />
+                <MetricTile
+                  label="Evidence"
+                  value={latestSynthesis.evidenceStrength ?? "moderate"}
+                  tone="sky"
+                />
+                <MetricTile
+                  label="Open Questions"
+                  value={proactiveQuestions.length}
+                  tone="amber"
+                />
+                <MetricTile
+                  label="Saved Sessions"
+                  value={activeCollection?.sessions.length ?? 0}
+                />
+              </div>
+
+              <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
+                <section className="space-y-4">
+                  <div className="border border-slate-300 bg-white">
+                    <div className="border-b border-slate-200 px-4 py-3">
+                      <h2 className="font-semibold">Proactive Research Assistant</h2>
+                    </div>
+                    <div className="grid gap-3 p-4 md:grid-cols-2">
+                      <div className="space-y-2">
+                        <h3 className="text-sm font-semibold">
+                          Suggested Follow-Up Questions
+                        </h3>
+                        {proactiveQuestions.map((item) => (
+                          <button
+                            key={item}
+                            type="button"
+                            onClick={() => {
+                              setCollectionQuestion(item);
+                              setWorkspaceView("chat");
+                            }}
+                            className="block w-full border border-slate-200 bg-slate-50 p-3 text-left text-sm leading-5 text-slate-700 hover:bg-white"
+                          >
+                            {item}
+                          </button>
+                        ))}
+                        {!proactiveQuestions.length ? (
+                          <EmptyState title="Generate a report or chat answer for suggested questions." />
+                        ) : null}
+                      </div>
+
+                      <div className="space-y-2">
+                        <h3 className="text-sm font-semibold">
+                          Recommended Research Directions
+                        </h3>
+                        {proactiveSuggestions.map((item) => (
+                          <p
+                            key={item}
+                            className="border border-slate-200 bg-white p-3 text-sm leading-5 text-slate-700"
+                          >
+                            {item}
+                          </p>
+                        ))}
+                        {!proactiveSuggestions.length ? (
+                          <EmptyState title="Extract knowledge to generate research directions." />
+                        ) : null}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="border border-slate-300 bg-white">
+                    <div className="border-b border-slate-200 px-4 py-3">
+                      <h2 className="font-semibold">
+                        Supporting vs Conflicting Evidence
+                      </h2>
+                    </div>
+                    <div className="grid gap-3 p-4 md:grid-cols-2">
+                      <div className="space-y-2">
+                        <h3 className="text-sm font-semibold text-emerald-800">
+                          Supporting Signals
+                        </h3>
+                        {(latestSynthesis.claimValidation ?? [])
+                          .filter((item) => item.status === "supported")
+                          .slice(0, 5)
+                          .map((item) => (
+                            <article
+                              key={item.claim}
+                              className="border border-emerald-200 bg-emerald-50 p-3"
+                            >
+                              <p className="text-sm font-semibold">
+                                {item.claim}
+                              </p>
+                              <p className="mt-1 text-xs leading-5 text-emerald-900">
+                                {item.explanation}
+                              </p>
+                            </article>
+                          ))}
+                        {!(latestSynthesis.claimValidation ?? []).some(
+                          (item) => item.status === "supported",
+                        ) ? (
+                          <EmptyState title="Supported claim checks appear after a confidence or validation report." />
+                        ) : null}
+                      </div>
+
+                      <div className="space-y-2">
+                        <h3 className="text-sm font-semibold text-amber-800">
+                          Contradiction Alerts
+                        </h3>
+                        {contradictionAlerts.map((alert) => (
+                          <article
+                            key={`${alert.title}-${alert.body}`}
+                            className="border border-amber-200 bg-amber-50 p-3"
+                          >
+                            <p className="text-sm font-semibold">{alert.title}</p>
+                            <p className="mt-1 text-xs leading-5 text-amber-900">
+                              {alert.body}
+                            </p>
+                          </article>
+                        ))}
+                        {!contradictionAlerts.length ? (
+                          <EmptyState title="No contradictions detected yet." />
+                        ) : null}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="border border-slate-300 bg-white">
+                    <div className="border-b border-slate-200 px-4 py-3">
+                      <h2 className="font-semibold">Research Timeline</h2>
+                    </div>
+                    <div className="space-y-3 p-4">
+                      {activityFeed.map((item) => (
+                        <article
+                          key={item.id}
+                          className="border-l-2 border-slate-950 bg-slate-50 px-3 py-2"
+                        >
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="border border-slate-300 bg-white px-2 py-1 text-xs">
+                              {item.label}
+                            </span>
+                            <span className="text-xs text-slate-500">
+                              {formatDate(item.createdAt)}
+                            </span>
+                          </div>
+                          <p className="mt-2 text-sm font-semibold">{item.title}</p>
+                        </article>
+                      ))}
+                      {!activityFeed.length ? (
+                        <EmptyState title="Collection activity appears as you run workflows." />
+                      ) : null}
+                    </div>
+                  </div>
+                </section>
+
+                <aside className="space-y-4">
+                  <section className="border border-slate-300 bg-white">
+                    <div className="border-b border-slate-200 px-4 py-3">
+                      <h2 className="font-semibold">Trending Concepts</h2>
+                    </div>
+                    <div className="space-y-2 p-3">
+                      {trendingEntities.map((entity) => (
+                        <button
+                          key={entity.id}
+                          type="button"
+                          onClick={() => {
+                            setSelectedEntityId(entity.id);
+                            setWorkspaceView("knowledge");
+                          }}
+                          className="block w-full border border-slate-200 bg-slate-50 p-3 text-left hover:bg-white"
+                        >
+                          <div className="flex items-center justify-between gap-3">
+                            <p className="text-sm font-semibold">{entity.name}</p>
+                            <span className="text-xs text-slate-500">
+                              {entity.mentions}
+                            </span>
+                          </div>
+                          <p className="mt-1 text-xs text-slate-500">
+                            {entity.type}
+                          </p>
+                        </button>
+                      ))}
+                      {!trendingEntities.length ? (
+                        <EmptyState title="Trending concepts appear after extraction." />
+                      ) : null}
+                    </div>
+                  </section>
+
+                  <section className="border border-slate-300 bg-white">
+                    <div className="border-b border-slate-200 px-4 py-3">
+                      <h2 className="font-semibold">
+                        Recently Discovered Concepts
+                      </h2>
+                    </div>
+                    <div className="space-y-2 p-3">
+                      {recentlyDiscoveredConcepts.map((entity) => (
+                        <div
+                          key={entity.id}
+                          className="border border-slate-200 bg-white p-3"
+                        >
+                          <p className="text-sm font-semibold">{entity.name}</p>
+                          <p className="mt-1 text-xs leading-5 text-slate-600">
+                            {entity.summary}
+                          </p>
+                        </div>
+                      ))}
+                      {!recentlyDiscoveredConcepts.length ? (
+                        <EmptyState title="No concepts discovered yet." />
+                      ) : null}
+                    </div>
+                  </section>
+
+                  <section className="border border-slate-300 bg-white">
+                    <div className="border-b border-slate-200 px-4 py-3">
+                      <h2 className="font-semibold">Saved Research Sessions</h2>
+                    </div>
+                    <div className="space-y-2 p-3">
+                      {activeCollection?.sessions.map((session) => (
+                        <article
+                          key={session.id}
+                          className="border border-slate-200 bg-slate-50 p-3"
+                        >
+                          <div className="flex items-center justify-between gap-3">
+                            <h3 className="text-sm font-semibold">
+                              {session.title}
+                            </h3>
+                            <span className="border border-slate-300 bg-white px-2 py-1 text-xs">
+                              {session.status}
+                            </span>
+                          </div>
+                          {session.summary ? (
+                            <p className="mt-2 text-xs leading-5 text-slate-600">
+                              {session.summary}
+                            </p>
+                          ) : null}
+                          {session.findings.length ? (
+                            <p className="mt-2 text-xs text-slate-500">
+                              {session.findings.length} linked findings
+                            </p>
+                          ) : null}
+                        </article>
+                      ))}
+                      {!activeCollection?.sessions.length ? (
+                        <EmptyState title="Save a session to preserve investigation memory." />
+                      ) : null}
+                    </div>
+                  </section>
+                </aside>
+              </div>
             </section>
           ) : null}
 
@@ -2197,6 +2976,18 @@ export function ResearchWorkspace({
                       {labelFromKind(kind)}
                     </button>
                   ))}
+                  {reasoningReportKinds.map((kind) => (
+                    <button
+                      key={kind}
+                      type="button"
+                      onClick={() => runCollectionReport(kind)}
+                      disabled={!activeCollection || busyAction === `collection-${kind}`}
+                      className="inline-flex w-full items-center justify-center gap-2 border border-slate-300 px-3 py-2 text-sm font-semibold disabled:opacity-50"
+                    >
+                      <Brain className="h-4 w-4" />
+                      {labelFromKind(kind)}
+                    </button>
+                  ))}
                   <button
                     type="button"
                     onClick={runKnowledgeExtraction}
@@ -2205,6 +2996,15 @@ export function ResearchWorkspace({
                   >
                     <Network className="h-4 w-4" />
                     Extract Knowledge
+                  </button>
+                  <button
+                    type="button"
+                    onClick={saveInvestigationSession}
+                    disabled={!activeCollection || busyAction === "save-session"}
+                    className="inline-flex w-full items-center justify-center gap-2 border border-slate-300 px-3 py-2 text-sm font-semibold disabled:opacity-50"
+                  >
+                    <NotebookPen className="h-4 w-4" />
+                    Save Session Memory
                   </button>
                   <button
                     type="button"
@@ -2355,6 +3155,29 @@ export function ResearchWorkspace({
               >
                 <Network className="h-4 w-4" />
                 Extract knowledge
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  void runCollectionReport("confidence_report");
+                  setCommandOpen(false);
+                }}
+                disabled={!activeCollection}
+                className="flex items-center gap-3 border border-slate-200 p-3 text-left text-sm hover:bg-slate-50 disabled:opacity-50"
+              >
+                <Brain className="h-4 w-4" />
+                Generate confidence report
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setWorkspaceView("intelligence");
+                  setCommandOpen(false);
+                }}
+                className="flex items-center gap-3 border border-slate-200 p-3 text-left text-sm hover:bg-slate-50"
+              >
+                <Activity className="h-4 w-4" />
+                Open intelligence
               </button>
               <button
                 type="button"

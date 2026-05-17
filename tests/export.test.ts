@@ -183,6 +183,7 @@ const collection: CollectionDetail = {
   ],
   qa: [],
   pipelineRuns: [],
+  sessions: [],
 };
 
 describe("report export", () => {

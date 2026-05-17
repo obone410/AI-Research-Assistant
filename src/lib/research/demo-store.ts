@@ -20,6 +20,8 @@ import type {
   ResearchNote,
   ResearchProject,
   ResearchPipelineRun,
+  ResearchSession,
+  ResearchSessionFinding,
   SynthesisReport,
   SynthesisReportKind,
   UsageAnalytics,
@@ -45,6 +47,8 @@ type DemoState = {
   claims: ResearchClaim[];
   collectionQa: CollectionQaMessage[];
   pipelineRuns: ResearchPipelineRun[];
+  sessions: ResearchSession[];
+  sessionFindings: ResearchSessionFinding[];
   metrics: UsageMetric[];
   documentEntities: DocumentEntity[];
   relationships: EntityRelationship[];
@@ -211,6 +215,37 @@ function createSeedStore(): DemoState {
         ],
       },
     ],
+    sessions: [
+      {
+        id: "demo-research-session",
+        collectionId: collection.id,
+        projectId: null,
+        title: "Demo investigation session",
+        status: "saved",
+        summary:
+          "Tracks the collection's reusable research memory, open questions, and citation-backed follow-ups.",
+        memory: {
+          focus: "AI research workspace maturity",
+          lastQuestion: "Which gaps should be investigated next?",
+        },
+        createdAt: now,
+        updatedAt: now,
+        findings: [],
+      },
+    ],
+    sessionFindings: [
+      {
+        id: "demo-session-finding",
+        sessionId: "demo-research-session",
+        findingType: "gap",
+        title: "Evidence depth needs follow-up",
+        body:
+          "The session should compare source-level evidence before turning generated claims into final briefing material.",
+        citations: [],
+        confidence: "medium",
+        createdAt: now,
+      },
+    ],
     metrics: [
       {
         id: "demo-metric",
@@ -352,6 +387,15 @@ export function getDemoCollection(collectionId: string): CollectionDetail {
     pipelineRuns: store.pipelineRuns.filter(
       (item) => item.collectionId === collection.id,
     ),
+    sessions: store.sessions
+      .filter((item) => item.collectionId === collection.id)
+      .map((session) => ({
+        ...session,
+        findings: store.sessionFindings
+          .filter((finding) => finding.sessionId === session.id)
+          .sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
+      }))
+      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
   };
 }
 
@@ -689,6 +733,31 @@ export function createDemoPipelineRun(input: {
   run.steps = run.steps.map((step) => ({ ...step, runId: run.id }));
   getDemoStore().pipelineRuns.unshift(run);
   return run;
+}
+
+export function createDemoResearchSession(input: {
+  collectionId?: string | null;
+  projectId?: string | null;
+  title: string;
+  summary?: string | null;
+  memory?: Record<string, unknown>;
+}) {
+  const now = new Date().toISOString();
+  const session: ResearchSession = {
+    id: randomUUID(),
+    collectionId: input.collectionId ?? null,
+    projectId: input.projectId ?? null,
+    title: input.title,
+    status: "saved",
+    summary: input.summary ?? null,
+    memory: input.memory ?? {},
+    createdAt: now,
+    updatedAt: now,
+    findings: [],
+  };
+
+  getDemoStore().sessions.unshift(session);
+  return session;
 }
 
 export function getDemoUsageAnalytics(): UsageAnalytics {

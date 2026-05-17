@@ -136,7 +136,14 @@ export type SynthesisReportKind =
   | "contradiction_analysis"
   | "opportunity_analysis"
   | "key_takeaways"
-  | "recommendation_summary";
+  | "recommendation_summary"
+  | "confidence_report"
+  | "hypothesis_generation"
+  | "claim_validation"
+  | "evidence_summary"
+  | "strategic_insight_report"
+  | "analytical_briefing"
+  | "collection_comparison_report";
 
 export type SynthesisReport = {
   id: string;
@@ -258,6 +265,32 @@ export type UsageMetric = {
   createdAt: string;
 };
 
+export type ResearchSessionStatus = "active" | "saved" | "archived";
+
+export type ResearchSessionFinding = {
+  id: string;
+  sessionId: string;
+  findingType: string;
+  title: string;
+  body: string;
+  citations: Citation[];
+  confidence: "low" | "medium" | "high";
+  createdAt: string;
+};
+
+export type ResearchSession = {
+  id: string;
+  collectionId?: string | null;
+  projectId?: string | null;
+  title: string;
+  status: ResearchSessionStatus;
+  summary?: string | null;
+  memory: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+  findings: ResearchSessionFinding[];
+};
+
 export type CachedQaResponse = {
   output: unknown;
   provider: string;
@@ -291,6 +324,7 @@ export type CollectionDetail = ResearchCollection & {
   claims: ResearchClaim[];
   qa: CollectionQaMessage[];
   pipelineRuns: ResearchPipelineRun[];
+  sessions: ResearchSession[];
 };
 
 export type EntityDetail = KnowledgeEntity & {

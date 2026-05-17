@@ -13,6 +13,7 @@ import {
   createDemoProjectFromDocument,
   createDemoCollection,
   createDemoPipelineRun,
+  createDemoResearchSession,
   getDemoCollection,
   getDemoCollectionChunks,
   getDemoCachedQa,
@@ -51,6 +52,8 @@ import type {
   ResearchProject,
   ResearchPipelineRun,
   ResearchPipelineStep,
+  ResearchSession,
+  ResearchSessionFinding,
   RetrievalHit,
   SynthesisReport,
   SynthesisReportKind,
@@ -348,6 +351,37 @@ function mapPipelineRun(row: DbRow, steps: ResearchPipelineStep[]): ResearchPipe
     createdAt: row.created_at as string,
     completedAt: row.completed_at as string | null,
     steps,
+  };
+}
+
+function mapResearchSessionFinding(row: DbRow): ResearchSessionFinding {
+  return {
+    id: row.id as string,
+    sessionId: row.session_id as string,
+    findingType: row.finding_type as string,
+    title: row.title as string,
+    body: row.body as string,
+    citations: (row.citations ?? []) as Citation[],
+    confidence: row.confidence as ResearchSessionFinding["confidence"],
+    createdAt: row.created_at as string,
+  };
+}
+
+function mapResearchSession(
+  row: DbRow,
+  findings: ResearchSessionFinding[],
+): ResearchSession {
+  return {
+    id: row.id as string,
+    collectionId: row.collection_id as string | null,
+    projectId: row.project_id as string | null,
+    title: row.title as string,
+    status: row.status as ResearchSession["status"],
+    summary: row.summary as string | null,
+    memory: (row.memory ?? {}) as Record<string, unknown>,
+    createdAt: row.created_at as string,
+    updatedAt: row.updated_at as string,
+    findings,
   };
 }
 
@@ -664,6 +698,7 @@ export async function getCollectionDetail(
     claimsResult,
     qaResult,
     runsResult,
+    sessionsResult,
   ] = await Promise.all([
     ctx.supabase
       .from("research_collections")
@@ -723,6 +758,12 @@ export async function getCollectionDetail(
       .eq("collection_id", collectionId)
       .order("created_at", { ascending: false })
       .limit(8),
+    ctx.supabase
+      .from("research_sessions")
+      .select("*")
+      .eq("collection_id", collectionId)
+      .order("updated_at", { ascending: false })
+      .limit(8),
   ]);
 
   if (collectionResult.error) {
@@ -734,6 +775,9 @@ export async function getCollectionDetail(
   }
 
   const runIds = (runsResult.data ?? []).map((run) => run.id as string);
+  const sessionIds = (sessionsResult.data ?? []).map(
+    (session) => session.id as string,
+  );
   const stepsResult = runIds.length
     ? await ctx.supabase
         .from("research_pipeline_steps")
@@ -741,15 +785,33 @@ export async function getCollectionDetail(
         .in("run_id", runIds)
         .order("created_at", { ascending: true })
     : { data: [], error: null };
+  const findingsResult = sessionIds.length
+    ? await ctx.supabase
+        .from("research_session_findings")
+        .select("*")
+        .in("session_id", sessionIds)
+        .order("created_at", { ascending: false })
+    : { data: [], error: null };
 
   if (stepsResult.error) {
     throw new Error(stepsResult.error.message);
+  }
+  if (findingsResult.error) {
+    throw new Error(findingsResult.error.message);
   }
 
   const stepsByRun = new Map<string, ResearchPipelineStep[]>();
   for (const row of stepsResult.data ?? []) {
     const step = mapPipelineStep(row);
     stepsByRun.set(step.runId, [...(stepsByRun.get(step.runId) ?? []), step]);
+  }
+  const findingsBySession = new Map<string, ResearchSessionFinding[]>();
+  for (const row of findingsResult.data ?? []) {
+    const finding = mapResearchSessionFinding(row);
+    findingsBySession.set(finding.sessionId, [
+      ...(findingsBySession.get(finding.sessionId) ?? []),
+      finding,
+    ]);
   }
 
   return {
@@ -765,6 +827,12 @@ export async function getCollectionDetail(
     qa: (qaResult.data ?? []).map(mapCollectionQa),
     pipelineRuns: (runsResult.data ?? []).map((run) =>
       mapPipelineRun(run, stepsByRun.get(run.id as string) ?? []),
+    ),
+    sessions: (sessionsResult.data ?? []).map((session) =>
+      mapResearchSession(
+        session,
+        findingsBySession.get(session.id as string) ?? [],
+      ),
     ),
   };
 }
@@ -1313,10 +1381,141 @@ function tokenize(text: string) {
   );
 }
 
-function lexicalRetrieve(chunks: DocumentChunk[], question: string, count: number) {
-  const questionTokens = tokenize(question);
+const retrievalStopwords = new Set([
+  "about",
+  "after",
+  "again",
+  "against",
+  "also",
+  "and",
+  "are",
+  "because",
+  "between",
+  "can",
+  "could",
+  "does",
+  "from",
+  "has",
+  "have",
+  "how",
+  "into",
+  "that",
+  "the",
+  "their",
+  "there",
+  "these",
+  "this",
+  "those",
+  "what",
+  "when",
+  "where",
+  "which",
+  "with",
+  "would",
+]);
 
-  return chunks
+function meaningfulTokens(text: string) {
+  return Array.from(tokenize(text)).filter(
+    (token) => !retrievalStopwords.has(token),
+  );
+}
+
+function rewriteRetrievalQuery(question: string) {
+  const normalized = question.trim().replace(/\s+/g, " ");
+  const tokens = meaningfulTokens(normalized);
+  const phrases = normalized
+    .match(/"([^"]+)"|'([^']+)'/g)
+    ?.map((phrase) => phrase.replace(/^["']|["']$/g, "").toLowerCase()) ?? [];
+  const bigrams = tokens.slice(0, 10).flatMap((token, index) => {
+    const next = tokens[index + 1];
+    return next ? [`${token} ${next}`] : [];
+  });
+
+  return Array.from(new Set([normalized.toLowerCase(), ...phrases, ...tokens, ...bigrams]))
+    .join(" ")
+    .slice(0, 900);
+}
+
+function chunkFingerprint(content: string) {
+  return content
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim()
+    .slice(0, 360);
+}
+
+function compressRetrievedContent(content: string, question: string, maxChars = 980) {
+  const compact = content.replace(/\s+/g, " ").trim();
+  if (compact.length <= maxChars) {
+    return compact;
+  }
+
+  const questionTokens = new Set(meaningfulTokens(question));
+  const sentences = compact
+    .split(/(?<=[.!?])\s+/)
+    .filter((sentence) => sentence.length > 24);
+
+  if (!sentences.length) {
+    return `${compact.slice(0, maxChars - 1).trim()}…`;
+  }
+
+  const selected = sentences
+    .map((sentence, index) => ({
+      sentence,
+      index,
+      score:
+        lexicalScore(sentence, questionTokens, question) +
+        (index < 2 ? 0.08 : 0),
+    }))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 4)
+    .sort((a, b) => a.index - b.index)
+    .map((item) => item.sentence)
+    .join(" ");
+
+  return selected.length > maxChars
+    ? `${selected.slice(0, maxChars - 1).trim()}…`
+    : selected;
+}
+
+function finalizeRetrievalHits(
+  hits: RetrievalHit[],
+  question: string,
+  rewrittenQuestion: string,
+  count: number,
+) {
+  const questionTokens = new Set(meaningfulTokens(rewrittenQuestion || question));
+  const seen = new Set<string>();
+
+  return hits
+    .map((hit) => {
+      const lexical = lexicalScore(hit.content, questionTokens, question);
+      const citationBoost = hit.sectionTitle || hit.pageStart ? 0.03 : 0;
+
+      return {
+        ...hit,
+        content: compressRetrievedContent(hit.content, question),
+        similarity: hit.similarity * 0.64 + lexical * 0.34 + citationBoost,
+      };
+    })
+    .sort((a, b) => b.similarity - a.similarity)
+    .filter((hit) => {
+      const key = chunkFingerprint(hit.content) || hit.id;
+      if (seen.has(key)) {
+        return false;
+      }
+
+      seen.add(key);
+      return true;
+    })
+    .slice(0, count);
+}
+
+function lexicalRetrieve(chunks: DocumentChunk[], question: string, count: number) {
+  const rewrittenQuestion = rewriteRetrievalQuery(question);
+  const questionTokens = new Set(meaningfulTokens(rewrittenQuestion || question));
+
+  const hits = chunks
     .map((chunk) => {
       return {
         ...chunk,
@@ -1324,7 +1523,9 @@ function lexicalRetrieve(chunks: DocumentChunk[], question: string, count: numbe
       };
     })
     .sort((a, b) => b.similarity - a.similarity)
-    .slice(0, count);
+    .slice(0, Math.max(count * 2, count));
+
+  return finalizeRetrievalHits(hits, question, rewrittenQuestion, count);
 }
 
 function lexicalScore(
@@ -1378,14 +1579,15 @@ export async function retrieveRelevantChunks(
   question: string,
   count = 6,
 ): Promise<RetrievalHit[]> {
+  const rewrittenQuestion = rewriteRetrievalQuery(question);
   if (ctx.mode === "supabase") {
-    const embedding = await embedText(question);
+    const embedding = await embedText(`${question}\n${rewrittenQuestion}`);
 
     if (embedding) {
       const { data, error } = await ctx.supabase.rpc("match_document_chunks", {
         match_project_id: projectId,
         query_embedding: vectorLiteral(embedding),
-        match_count: count,
+        match_count: Math.max(count * 2, count),
       });
 
       if (!error && data?.length) {
@@ -1403,11 +1605,16 @@ export async function retrieveRelevantChunks(
         }));
         const lexicalHits = lexicalRetrieve(
           await getProjectChunks(ctx, projectId),
-          question,
-          count,
+          rewrittenQuestion,
+          Math.max(count * 2, count),
         );
 
-        return mergeHybridHits(vectorHits, lexicalHits).slice(0, count);
+        return finalizeRetrievalHits(
+          mergeHybridHits(vectorHits, lexicalHits),
+          question,
+          rewrittenQuestion,
+          count,
+        );
       }
     }
   }
@@ -1423,6 +1630,7 @@ export async function retrieveRelevantCollectionChunks(
   count = 8,
 ): Promise<RetrievalHit[]> {
   const collection = await getCollectionDetail(ctx, collectionId);
+  const rewrittenQuestion = rewriteRetrievalQuery(question);
   if (!collection) {
     return [];
   }
@@ -1434,7 +1642,7 @@ export async function retrieveRelevantCollectionChunks(
         const hits = await retrieveRelevantChunks(
           ctx,
           document.projectId,
-          question,
+          rewrittenQuestion,
           perProject,
         );
 
@@ -1446,10 +1654,12 @@ export async function retrieveRelevantCollectionChunks(
       }),
     );
 
-    const hits = groupedHits
-      .flat()
-      .sort((a, b) => b.similarity - a.similarity)
-      .slice(0, count);
+    const hits = finalizeRetrievalHits(
+      groupedHits.flat(),
+      question,
+      rewrittenQuestion,
+      count,
+    );
 
     if (hits.length) {
       return hits;
@@ -1457,7 +1667,7 @@ export async function retrieveRelevantCollectionChunks(
   }
 
   const chunks = await getCollectionChunks(ctx, collectionId);
-  return lexicalRetrieve(chunks, question, count);
+  return lexicalRetrieve(chunks, rewrittenQuestion, count);
 }
 
 export async function addNote(
@@ -2081,6 +2291,82 @@ export async function recordPipelineRun(
     runResult.data,
     (stepsResult.data ?? []).map(mapPipelineStep),
   );
+}
+
+export async function createResearchSession(
+  ctx: ResearchContext,
+  input: {
+    collectionId?: string | null;
+    projectId?: string | null;
+    title: string;
+    summary?: string | null;
+    memory?: Record<string, unknown>;
+    findings?: Array<{
+      findingType: string;
+      title: string;
+      body: string;
+      citations?: Citation[];
+      confidence?: "low" | "medium" | "high";
+    }>;
+  },
+) {
+  if (ctx.mode === "demo") {
+    return createDemoResearchSession(input);
+  }
+
+  const { data, error } = await ctx.supabase
+    .from("research_sessions")
+    .insert({
+      collection_id: input.collectionId ?? null,
+      project_id: input.projectId ?? null,
+      user_id: ctx.user.id,
+      title: input.title,
+      status: "saved",
+      summary: input.summary ?? null,
+      memory: input.memory ?? {},
+    })
+    .select("*")
+    .single();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  const findingRows = (input.findings ?? []).map((finding) => ({
+    session_id: data.id,
+    user_id: ctx.user.id,
+    finding_type: finding.findingType,
+    title: finding.title,
+    body: finding.body,
+    citations: finding.citations ?? [],
+    confidence: finding.confidence ?? "medium",
+  }));
+  const findingsResult = findingRows.length
+    ? await ctx.supabase
+        .from("research_session_findings")
+        .insert(findingRows)
+        .select("*")
+    : { data: [], error: null };
+
+  if (findingsResult.error) {
+    throw new Error(findingsResult.error.message);
+  }
+
+  const session = mapResearchSession(
+    data,
+    (findingsResult.data ?? []).map(mapResearchSessionFinding),
+  );
+  await recordAction(ctx, {
+    action: "research_session.save",
+    targetType: input.collectionId ? "collection" : "project",
+    targetId: input.collectionId ?? input.projectId ?? null,
+    metadata: {
+      sessionId: session.id,
+      findings: session.findings.length,
+    },
+  });
+
+  return session;
 }
 
 export async function getUsageAnalytics(

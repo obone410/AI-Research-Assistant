@@ -460,6 +460,13 @@ function reportTitle(kind: SynthesisReportKind, collectionName: string) {
     opportunity_analysis: "Opportunity Analysis",
     key_takeaways: "Key Takeaways",
     recommendation_summary: "Recommendation Summary",
+    confidence_report: "Research Confidence Report",
+    hypothesis_generation: "Hypothesis Map",
+    claim_validation: "Claim Validation",
+    evidence_summary: "Evidence Summary",
+    strategic_insight_report: "Strategic Insight Report",
+    analytical_briefing: "Analytical Briefing",
+    collection_comparison_report: "Collection Comparison Report",
   };
 
   return `${collectionName} ${label[kind]}`;

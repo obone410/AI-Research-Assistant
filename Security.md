@@ -11,7 +11,7 @@ The Supabase values supplied by the owner were added only to ignored `.env.local
 Primary assets:
 
 - User documents and extracted raw text.
-- Document chunks, embeddings, AI summaries, insights, keywords, notes, highlights, collection reports, extracted entities, entity links, research claims, cached research answers, action records, and Q&A history.
+- Document chunks, embeddings, AI summaries, insights, keywords, notes, highlights, collection reports, extracted entities, entity links, research claims, saved research sessions, cached research answers, action records, and Q&A history.
 - Supabase sessions and private Storage objects.
 - AI provider API keys when configured.
 
@@ -66,7 +66,7 @@ The migration defines RLS policies, private storage bucket policies, and pgvecto
 
 Required action:
 
-- Apply `supabase/migrations/0001_researchos.sql`, `supabase/migrations/0002_research_intelligence_workspace.sql`, `supabase/migrations/0003_entity_relationships_and_cache.sql`, `supabase/migrations/0004_production_hardening.sql`, `supabase/migrations/0005_pdf_schema_alignment.sql`, and `supabase/migrations/0006_research_workspace_upgrade.sql` to the target Supabase project.
+- Apply `supabase/migrations/0001_researchos.sql`, `supabase/migrations/0002_research_intelligence_workspace.sql`, `supabase/migrations/0003_entity_relationships_and_cache.sql`, `supabase/migrations/0004_production_hardening.sql`, `supabase/migrations/0005_pdf_schema_alignment.sql`, `supabase/migrations/0006_research_workspace_upgrade.sql`, and `supabase/migrations/0007_interactive_research_intelligence.sql` to the target Supabase project.
 - Confirm the `vector` extension is enabled.
 - Confirm the `research-documents` bucket is private.
 - Confirm authenticated users can only read/write rows where `user_id = auth.uid()`.
@@ -126,7 +126,7 @@ Rate limiting:
 
 Action records:
 
-- Uploads, exports, collection creation, document attachment, synthesis, knowledge extraction, AI outputs, and research chat write lightweight action records.
+- Uploads, exports, collection creation, document attachment, synthesis, knowledge extraction, saved sessions, AI outputs, and research chat write lightweight action records.
 - Action records store operation metadata, not raw document text or provider secrets.
 
 Browser headers:
