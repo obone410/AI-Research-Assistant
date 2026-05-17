@@ -264,7 +264,7 @@ function ProcessingRail({ steps }: { steps: string[] }) {
   }
 
   return (
-    <div className="space-y-2 border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950">
+    <div className="space-y-2 border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950 shadow-sm">
       {steps.map((step, index) => (
         <div key={step} className="flex items-center gap-2">
           {index === steps.length - 1 ? (
@@ -281,7 +281,7 @@ function ProcessingRail({ steps }: { steps: string[] }) {
 
 function JsonPreview({ value }: { value: unknown }) {
   return (
-    <pre className="max-h-72 overflow-auto border border-slate-200 bg-slate-50 p-3 text-xs leading-5 text-slate-700">
+    <pre className="max-h-72 overflow-auto border border-slate-200 bg-slate-50 p-3 font-mono text-xs leading-5 text-slate-700">
       {JSON.stringify(value ?? {}, null, 2)}
     </pre>
   );
@@ -290,7 +290,10 @@ function JsonPreview({ value }: { value: unknown }) {
 function EmptyState({ title }: { title: string }) {
   return (
     <div className="border border-dashed border-slate-300 bg-slate-50 p-6 text-sm text-slate-500">
-      {title}
+      <div className="flex items-center gap-2">
+        <Sparkles className="h-4 w-4 text-slate-400" />
+        <span>{title}</span>
+      </div>
     </div>
   );
 }
@@ -314,7 +317,7 @@ function MetricTile({
   return (
     <div className={clsx("border p-4", toneClass)}>
       <p className="text-xs uppercase tracking-[0.16em] text-slate-500">{label}</p>
-      <p className="mt-2 text-2xl font-semibold">{value}</p>
+      <p className="mt-2 text-2xl font-semibold tabular-nums">{value}</p>
     </div>
   );
 }
@@ -1153,7 +1156,7 @@ export function ResearchWorkspace({
 
   return (
     <main className="min-h-screen bg-[#f6f7f4] text-slate-950">
-      <header className="border-b border-slate-300 bg-white">
+      <header className="sticky top-0 z-30 border-b border-slate-300 bg-white/95 shadow-sm backdrop-blur">
         <div className="space-y-4 px-4 py-4 lg:px-6">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex items-center gap-3">
@@ -1180,22 +1183,22 @@ export function ResearchWorkspace({
               <button
                 type="button"
                 onClick={() => setCommandOpen(true)}
-                className="inline-flex items-center gap-2 border border-slate-300 px-3 py-2 text-sm font-semibold"
+                className="inline-flex min-h-10 items-center gap-2 border border-slate-300 px-3 py-2 text-sm font-semibold hover:border-slate-400 hover:bg-slate-50"
               >
                 <Command className="h-4 w-4" />
                 Command
               </button>
-              <span className="border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+              <span className="inline-flex min-h-10 items-center border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
                 {supabaseConfigured ? "Supabase" : "Demo"}
               </span>
-              <span className="border border-sky-300 bg-sky-50 px-3 py-2 text-sm text-sky-800">
+              <span className="inline-flex min-h-10 items-center border border-sky-300 bg-sky-50 px-3 py-2 text-sm text-sky-800">
                 {demoAi ? "Demo AI" : "Live AI"}
               </span>
               {supabaseConfigured ? (
                 <button
                   type="button"
                   onClick={signOut}
-                  className="inline-flex items-center gap-2 border border-slate-300 px-3 py-2 text-sm text-slate-700"
+                  className="inline-flex min-h-10 items-center gap-2 border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:border-slate-400 hover:bg-slate-50"
                 >
                   <LogOut className="h-4 w-4" />
                   Sign out
@@ -1216,7 +1219,7 @@ export function ResearchWorkspace({
                     "inline-flex shrink-0 items-center gap-2 border px-3 py-2 text-sm font-semibold",
                     workspaceView === item.id
                       ? "border-slate-950 bg-slate-950 text-white"
-                      : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50",
+                      : "border-slate-300 bg-white text-slate-700 hover:border-slate-400 hover:bg-slate-50",
                   )}
                 >
                   <Icon className="h-4 w-4" />
@@ -3136,13 +3139,13 @@ export function ResearchWorkspace({
       </div>
 
       {commandOpen ? (
-        <div className="fixed inset-0 z-50 bg-slate-950/30 p-4">
-          <div className="mx-auto mt-16 max-w-2xl border border-slate-300 bg-white shadow-xl">
+        <div className="fixed inset-0 z-50 bg-slate-950/35 p-4 backdrop-blur-sm">
+          <div className="mx-auto mt-10 max-w-2xl border border-slate-300 bg-white shadow-2xl sm:mt-16">
             <div className="flex items-center gap-2 border-b border-slate-200 p-3">
               <Command className="h-4 w-4 text-slate-500" />
               <input
                 autoFocus
-                className="min-w-0 flex-1 outline-none"
+                className="min-h-10 min-w-0 flex-1 px-1 outline-none"
                 placeholder="Run command"
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
@@ -3150,7 +3153,7 @@ export function ResearchWorkspace({
               <button
                 type="button"
                 onClick={() => setCommandOpen(false)}
-                className="p-1 text-slate-500"
+                className="inline-flex min-h-10 min-w-10 items-center justify-center text-slate-500 hover:bg-slate-50"
                 aria-label="Close command palette"
               >
                 <X className="h-4 w-4" />
@@ -3163,7 +3166,7 @@ export function ResearchWorkspace({
                   setWorkspaceView("collections");
                   setCommandOpen(false);
                 }}
-                className="flex items-center gap-3 border border-slate-200 p-3 text-left text-sm hover:bg-slate-50"
+                className="flex min-h-12 items-center gap-3 border border-slate-200 p-3 text-left text-sm hover:border-slate-300 hover:bg-slate-50"
               >
                 <Layers3 className="h-4 w-4" />
                 Open collections
@@ -3175,7 +3178,7 @@ export function ResearchWorkspace({
                   setCommandOpen(false);
                 }}
                 disabled={!activeCollection}
-                className="flex items-center gap-3 border border-slate-200 p-3 text-left text-sm hover:bg-slate-50 disabled:opacity-50"
+                className="flex min-h-12 items-center gap-3 border border-slate-200 p-3 text-left text-sm hover:border-slate-300 hover:bg-slate-50 disabled:opacity-50"
               >
                 <WandSparkles className="h-4 w-4" />
                 Generate executive brief
@@ -3187,7 +3190,7 @@ export function ResearchWorkspace({
                   setCommandOpen(false);
                 }}
                 disabled={!activeCollection}
-                className="flex items-center gap-3 border border-slate-200 p-3 text-left text-sm hover:bg-slate-50 disabled:opacity-50"
+                className="flex min-h-12 items-center gap-3 border border-slate-200 p-3 text-left text-sm hover:border-slate-300 hover:bg-slate-50 disabled:opacity-50"
               >
                 <Network className="h-4 w-4" />
                 Extract knowledge
@@ -3199,7 +3202,7 @@ export function ResearchWorkspace({
                   setCommandOpen(false);
                 }}
                 disabled={!activeCollection}
-                className="flex items-center gap-3 border border-slate-200 p-3 text-left text-sm hover:bg-slate-50 disabled:opacity-50"
+                className="flex min-h-12 items-center gap-3 border border-slate-200 p-3 text-left text-sm hover:border-slate-300 hover:bg-slate-50 disabled:opacity-50"
               >
                 <Brain className="h-4 w-4" />
                 Generate confidence report
@@ -3210,7 +3213,7 @@ export function ResearchWorkspace({
                   setWorkspaceView("intelligence");
                   setCommandOpen(false);
                 }}
-                className="flex items-center gap-3 border border-slate-200 p-3 text-left text-sm hover:bg-slate-50"
+                className="flex min-h-12 items-center gap-3 border border-slate-200 p-3 text-left text-sm hover:border-slate-300 hover:bg-slate-50"
               >
                 <Activity className="h-4 w-4" />
                 Open intelligence
@@ -3221,7 +3224,7 @@ export function ResearchWorkspace({
                   setWorkspaceView("analytics");
                   setCommandOpen(false);
                 }}
-                className="flex items-center gap-3 border border-slate-200 p-3 text-left text-sm hover:bg-slate-50"
+                className="flex min-h-12 items-center gap-3 border border-slate-200 p-3 text-left text-sm hover:border-slate-300 hover:bg-slate-50"
               >
                 <Activity className="h-4 w-4" />
                 Open analytics
