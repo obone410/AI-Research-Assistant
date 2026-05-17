@@ -506,7 +506,16 @@ export async function getProjectDetail(
     return getDemoProject(projectId);
   }
 
-  const [projectResult, documentsResult, chunksResult, outputsResult, notesResult, highlightsResult, qaResult] =
+  const [
+    projectResult,
+    documentsResult,
+    chunksResult,
+    outputsResult,
+    notesResult,
+    highlightsResult,
+    qaResult,
+    runsResult,
+  ] =
     await Promise.all([
       ctx.supabase
         .from("research_projects")
@@ -544,6 +553,12 @@ export async function getProjectDetail(
         .select("*")
         .eq("project_id", projectId)
         .order("created_at", { ascending: false }),
+      ctx.supabase
+        .from("research_pipeline_runs")
+        .select("*")
+        .eq("project_id", projectId)
+        .order("created_at", { ascending: false })
+        .limit(8),
     ]);
 
   if (projectResult.error) {
@@ -561,6 +576,25 @@ export async function getProjectDetail(
     }
   }
 
+  const runIds = (runsResult.data ?? []).map((run) => run.id as string);
+  const stepsResult = runIds.length
+    ? await ctx.supabase
+        .from("research_pipeline_steps")
+        .select("*")
+        .in("run_id", runIds)
+        .order("created_at", { ascending: true })
+    : { data: [], error: null };
+
+  if (stepsResult.error) {
+    throw new Error(stepsResult.error.message);
+  }
+
+  const stepsByRun = new Map<string, ResearchPipelineStep[]>();
+  for (const row of stepsResult.data ?? []) {
+    const step = mapPipelineStep(row);
+    stepsByRun.set(step.runId, [...(stepsByRun.get(step.runId) ?? []), step]);
+  }
+
   return {
     ...mapProject(projectResult.data),
     documents: (documentsResult.data ?? []).map(mapDocument),
@@ -569,6 +603,9 @@ export async function getProjectDetail(
     notes: (notesResult.data ?? []).map(mapNote),
     highlights: (highlightsResult.data ?? []).map(mapHighlight),
     qa: (qaResult.data ?? []).map(mapQa),
+    pipelineRuns: (runsResult.data ?? []).map((run) =>
+      mapPipelineRun(run, stepsByRun.get(run.id as string) ?? []),
+    ),
   };
 }
 
@@ -1122,8 +1159,19 @@ export async function createProjectFromDocument(
       tokenEstimate: Math.ceil(input.rawText.length / 4),
     },
   });
+  await recordPipelineRun(ctx, {
+    projectId: detail.id,
+    name: "Document ingestion",
+    steps: [
+      "Upload",
+      "Extract text",
+      "Chunk document",
+      input.chunks.some((chunk) => chunk.embedding) ? "Embed chunks" : "Prepare lexical retrieval",
+      "Store source",
+    ],
+  });
 
-  return detail;
+  return (await getProjectDetail(ctx, detail.id)) ?? detail;
 }
 
 export async function getProjectChunks(ctx: ResearchContext, projectId: string) {

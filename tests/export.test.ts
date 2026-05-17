@@ -64,6 +64,7 @@ const project: ProjectDetail = {
       createdAt: "2026-05-16T00:00:00.000Z",
     },
   ],
+  pipelineRuns: [],
 };
 
 const collection: CollectionDetail = {

@@ -131,6 +131,7 @@ function createSeedProject(): ProjectDetail {
     ],
     highlights: [],
     qa: [],
+    pipelineRuns: [],
   };
 }
 
@@ -343,6 +344,7 @@ export function createDemoProjectFromDocument(input: {
     notes: [],
     highlights: [],
     qa: [],
+    pipelineRuns: [],
   };
 
   getDemoStore().projects.unshift(detail);

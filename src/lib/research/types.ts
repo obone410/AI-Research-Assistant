@@ -89,6 +89,7 @@ export type ProjectDetail = ResearchProject & {
   notes: ResearchNote[];
   highlights: Highlight[];
   qa: QaMessage[];
+  pipelineRuns: ResearchPipelineRun[];
 };
 
 export type RetrievalHit = DocumentChunk & {

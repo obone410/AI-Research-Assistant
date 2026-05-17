@@ -1421,6 +1421,7 @@ export function ResearchWorkspace({
                   <MetricTile label="Chunks" value={activeProject?.chunks.length ?? 0} />
                   <MetricTile label="Notes" value={activeProject?.notes.length ?? 0} />
                   <MetricTile label="Pinned" value={pinnedAnswers.length} />
+                  <MetricTile label="Runs" value={activeProject?.pipelineRuns.length ?? 0} />
                   <MetricTile
                     label="Tokens"
                     value={compactNumber(activeProject?.documents[0]?.tokenCount ?? 0)}
@@ -1481,6 +1482,41 @@ export function ResearchWorkspace({
                   ))}
                   {!activeProject?.chunks.length ? (
                     <EmptyState title="Upload a document to start." />
+                  ) : null}
+                </div>
+              </section>
+
+              <section className="border border-slate-300 bg-white">
+                <div className="border-b border-slate-200 px-4 py-3">
+                  <h2 className="flex items-center gap-2 font-semibold">
+                    <Activity className="h-4 w-4 text-slate-600" />
+                    Project Pipeline
+                  </h2>
+                </div>
+                <div className="space-y-3 p-4">
+                  {activeProject?.pipelineRuns.map((run) => (
+                    <article key={run.id} className="border border-slate-200 bg-slate-50 p-3">
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <h3 className="text-sm font-semibold">{run.name}</h3>
+                        <span className="border border-emerald-300 bg-emerald-50 px-2 py-1 text-xs text-emerald-800">
+                          {run.status}
+                        </span>
+                      </div>
+                      <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+                        {run.steps.map((step) => (
+                          <div
+                            key={step.id}
+                            className="flex items-center gap-2 border border-slate-200 bg-white px-2 py-2 text-xs text-slate-700"
+                          >
+                            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-700" />
+                            <span>{step.name}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </article>
+                  ))}
+                  {!activeProject?.pipelineRuns.length ? (
+                    <EmptyState title="Upload a document to persist ingestion steps." />
                   ) : null}
                 </div>
               </section>
