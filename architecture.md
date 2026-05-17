@@ -196,7 +196,7 @@ Optional AI values:
 - `AI_PROVIDER=openai|anthropic`
 - `DEMO_MODE=true|false`
 
-`SUPABASE_SERVICE_ROLE_KEY` is optional but recommended for production. When present, server routes use it for persistent rate limiting and action records. It must never be exposed to the browser.
+`SUPABASE_SERVICE_ROLE_KEY` or `SUPABASE_SECRET_KEY` is optional but recommended for production. When present, server routes use it for persistent rate limiting and action records. It must never be exposed to the browser.
 
 ## Deployment Notes
 

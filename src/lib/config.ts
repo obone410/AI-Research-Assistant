@@ -3,7 +3,10 @@ import { publicConfig } from "@/lib/public-config";
 export { publicConfig };
 
 export const serverConfig = {
-  supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY ?? "",
+  supabaseServiceRoleKey:
+    process.env.SUPABASE_SERVICE_ROLE_KEY ??
+    process.env.SUPABASE_SECRET_KEY ??
+    "",
   openAiApiKey: process.env.OPENAI_API_KEY ?? "",
   openAiChatModel: process.env.OPENAI_CHAT_MODEL ?? "gpt-4o-mini",
   openAiEmbeddingModel:
