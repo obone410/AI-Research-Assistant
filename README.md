@@ -13,6 +13,7 @@ ResearchOS is a portfolio-grade AI research intelligence workspace built with Ne
 - Multi-document collections with unified reports, source comparisons, executive briefs, trend analysis, and research gap workflows.
 - Knowledge extraction for entities, linked insights, and source-backed claims.
 - Usage analytics for token estimates, provider mix, processing time, and retrieval efficiency.
+- Persistent Supabase-backed rate limits and action records when the service role key is configured.
 - Research workspace UI with document viewer, notes, highlights, pinned answers, collection chat, command palette, and Markdown/JSON exports.
 
 ## Local Setup
@@ -77,6 +78,8 @@ Apply the migrations in `supabase/migrations` in order. `0001_researchos.sql` cr
 
 `0003_entity_relationships_and_cache.sql` adds document-to-entity links, concept relationships, and a reusable Q&A cache for repeated project or collection questions.
 
+`0004_production_hardening.sql` adds persistent API rate-limit buckets, action records for important research operations, and the `check_rate_limit(...)` RPC used by server routes.
+
 ## API Routes
 
 - `POST /api/upload-document`
@@ -98,6 +101,7 @@ Apply the migrations in `supabase/migrations` in order. `0001_researchos.sql` cr
 - `POST /api/collections/:id/knowledge`
 - `POST /api/collections/:id/chat`
 - `GET /api/entities?collectionId=...`
+- `GET /api/entities/:id`
 - `GET /api/analytics`
 
 All AI calls happen server-side.

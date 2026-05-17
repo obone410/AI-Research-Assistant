@@ -277,3 +277,11 @@ export type CollectionDetail = ResearchCollection & {
   qa: CollectionQaMessage[];
   pipelineRuns: ResearchPipelineRun[];
 };
+
+export type EntityDetail = KnowledgeEntity & {
+  documentEntities: DocumentEntity[];
+  relationships: EntityRelationship[];
+  relatedInsights: LinkedInsight[];
+  relatedClaims: ResearchClaim[];
+  collection?: ResearchCollection | null;
+};

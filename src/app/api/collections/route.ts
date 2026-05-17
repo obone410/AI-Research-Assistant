@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { z } from "zod";
-import { rateLimit } from "@/lib/api/rate-limit";
+import { enforceRateLimit } from "@/lib/api/rate-limit";
 import { fail, ok, unknownFail, validationFail } from "@/lib/api/response";
 import {
   createResearchCollection,
@@ -16,7 +16,7 @@ const createCollectionSchema = z.object({
 });
 
 export async function GET(request: NextRequest) {
-  const limit = rateLimit(request, "collections:list", 90);
+  const limit = await enforceRateLimit(request, "collections:list", 90);
   if (!limit.allowed) {
     return fail("rate_limit_exceeded", "Too many requests.", 429, {
       retryAfter: limit.retryAfter,
@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const limit = rateLimit(request, "collections:create", 24);
+  const limit = await enforceRateLimit(request, "collections:create", 24);
   if (!limit.allowed) {
     return fail("rate_limit_exceeded", "Too many requests.", 429, {
       retryAfter: limit.retryAfter,

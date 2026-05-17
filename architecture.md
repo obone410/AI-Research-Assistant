@@ -7,7 +7,7 @@ ResearchOS is a Next.js App Router application that turns uploaded research docu
 The application has four runtime layers:
 
 - **Client workspace:** React components for auth, ingestion, project navigation, collection dashboards, document viewing, AI outputs, research chat, knowledge exploration, analytics, notes, highlights, and exports.
-- **API routes:** Next.js server routes for upload, summarization, extraction, keyword generation, document chat, collection synthesis, knowledge extraction, analytics, project reads, notes, highlights, pinning, and exports.
+- **API routes:** Next.js server routes for upload, summarization, extraction, keyword generation, document chat, collection synthesis, knowledge extraction, entity detail reads, analytics, project reads, notes, highlights, pinning, and exports.
 - **Research pipeline:** document parsing, normalization, chunking, hashing, prompt rendering, provider abstraction, embedding generation, retrieval, multi-document synthesis, structured output validation, and export generation.
 - **Supabase backend:** Auth sessions, private Storage bucket, Postgres metadata tables, row-level security, and pgvector retrieval.
 
@@ -21,7 +21,9 @@ The application has four runtime layers:
 6. Q&A embeds the question, retrieves relevant chunks through pgvector or lexical fallback, and returns cited answers.
 7. Collections attach multiple projects, retrieve source chunks across documents, and generate unified reports, source comparisons, executive briefs, trend analysis, and research gap outputs.
 8. Knowledge extraction stores entities, document-to-entity links, concept relationships, linked insights, and source-backed claims so research memory can be reused across the workspace.
-9. Exports assemble Markdown or JSON from projects or collections, including AI outputs, research chat, entities, claims, notes, highlights, and citations.
+9. Entity detail reads return the entity, related document mentions, concept relationships, insights, claims, and collection context for drill-down views.
+10. Exports assemble Markdown or JSON from projects or collections, including AI outputs, research chat, entities, claims, notes, highlights, and citations.
+11. Mutating and AI routes use local rate limits plus the Supabase `check_rate_limit(...)` RPC when `SUPABASE_SERVICE_ROLE_KEY` is configured.
 
 ## Key Modules
 
@@ -33,6 +35,7 @@ The application has four runtime layers:
 - `supabase/migrations/0001_researchos.sql`: base schema, indexes, storage bucket, RLS policies, and `match_document_chunks` RPC.
 - `supabase/migrations/0002_research_intelligence_workspace.sql`: collection, synthesis, knowledge, research chat, workflow progress, usage analytics, and saved view tables.
 - `supabase/migrations/0003_entity_relationships_and_cache.sql`: document-to-entity links, concept relationships, and reusable Q&A cache.
+- `supabase/migrations/0004_production_hardening.sql`: persistent API rate-limit buckets, action records, and `check_rate_limit(...)`.
 
 ## Storage Model
 
@@ -60,6 +63,8 @@ Supabase tables:
 - `ai_usage_metrics`
 - `saved_research_views`
 - `qa_response_cache`
+- `api_rate_limits`
+- `action_records`
 
 Storage bucket:
 
@@ -90,10 +95,10 @@ Optional AI values:
 - `AI_PROVIDER=openai|anthropic`
 - `DEMO_MODE=true|false`
 
-`SUPABASE_SERVICE_ROLE_KEY` is intentionally not required by the current application path.
+`SUPABASE_SERVICE_ROLE_KEY` is optional but recommended for production. When present, server routes use it for persistent rate limiting and action records. It must never be exposed to the browser.
 
 ## Deployment Notes
 
 The app was pushed to GitHub without local credentials. The Vercel deployment built successfully before credentials were added locally. Do not redeploy with local secrets unless they are configured intentionally as Vercel environment variables through the Vercel dashboard or CLI secret flow.
 
-Supabase migrations still need to be applied to the target Supabase project before authenticated production use. Without the migrations, the app can authenticate but project and collection operations will fail because tables, policies, storage bucket, and pgvector RPC are missing.
+Supabase migrations still need to be applied to the target Supabase project before authenticated production use. Without the migrations, the app can authenticate but project, collection, entity detail, persistent rate-limit, and action-record operations will fail because tables, policies, storage bucket, and RPC functions are missing.

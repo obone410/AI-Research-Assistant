@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { z } from "zod";
 import { fail, ok, unknownFail, validationFail } from "@/lib/api/response";
-import { rateLimit } from "@/lib/api/rate-limit";
+import { enforceRateLimit } from "@/lib/api/rate-limit";
 import { addHighlight, getResearchContext } from "@/lib/research/repository";
 
 export const runtime = "nodejs";
@@ -16,7 +16,7 @@ export async function POST(
   request: NextRequest,
   context: { params: Promise<{ id: string }> },
 ) {
-  const limit = rateLimit(request, "highlights:create", 40);
+  const limit = await enforceRateLimit(request, "highlights:create", 40);
   if (!limit.allowed) {
     return fail("rate_limit_exceeded", "Highlight rate limit exceeded.", 429, {
       retryAfter: limit.retryAfter,

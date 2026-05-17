@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { z } from "zod";
-import { rateLimit } from "@/lib/api/rate-limit";
+import { enforceRateLimit } from "@/lib/api/rate-limit";
 import { fail, ok, unknownFail, validationFail } from "@/lib/api/response";
 import {
   attachProjectToCollection,
@@ -17,7 +17,7 @@ export async function POST(
   request: NextRequest,
   context: { params: Promise<{ id: string }> },
 ) {
-  const limit = rateLimit(request, "collections:attach", 40);
+  const limit = await enforceRateLimit(request, "collections:attach", 40);
   if (!limit.allowed) {
     return fail("rate_limit_exceeded", "Too many requests.", 429, {
       retryAfter: limit.retryAfter,

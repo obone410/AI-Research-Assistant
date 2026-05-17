@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { enforceRateLimit } from "@/lib/api/rate-limit";
 import { fail, ok, unknownFail } from "@/lib/api/response";
 import {
-  getCollectionDetail,
+  getEntityDetail,
   getResearchContext,
 } from "@/lib/research/repository";
 
@@ -12,7 +12,7 @@ export async function GET(
   request: NextRequest,
   context: { params: Promise<{ id: string }> },
 ) {
-  const limit = await enforceRateLimit(request, "collections:detail", 90);
+  const limit = await enforceRateLimit(request, "entities:detail", 60);
   if (!limit.allowed) {
     return fail("rate_limit_exceeded", "Too many requests.", 429, {
       retryAfter: limit.retryAfter,
@@ -23,15 +23,15 @@ export async function GET(
     const { id } = await context.params;
     const ctx = await getResearchContext();
     if (!ctx) {
-      return fail("unauthorized", "Sign in to view this collection.", 401);
+      return fail("unauthorized", "Sign in to view this entity.", 401);
     }
 
-    const collection = await getCollectionDetail(ctx, id);
-    if (!collection) {
-      return fail("not_found", "Collection not found.", 404);
+    const entity = await getEntityDetail(ctx, id);
+    if (!entity) {
+      return fail("not_found", "Entity not found.", 404);
     }
 
-    return ok({ collection, mode: ctx.mode });
+    return ok({ entity, mode: ctx.mode });
   } catch (error) {
     return unknownFail(error);
   }

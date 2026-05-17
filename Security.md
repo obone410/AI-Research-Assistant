@@ -11,7 +11,7 @@ The Supabase values supplied by the owner were added only to ignored `.env.local
 Primary assets:
 
 - User documents and extracted raw text.
-- Document chunks, embeddings, AI summaries, insights, keywords, notes, highlights, collection reports, extracted entities, entity links, research claims, cached research answers, and Q&A history.
+- Document chunks, embeddings, AI summaries, insights, keywords, notes, highlights, collection reports, extracted entities, entity links, research claims, cached research answers, action records, and Q&A history.
 - Supabase sessions and private Storage objects.
 - AI provider API keys when configured.
 
@@ -66,7 +66,7 @@ The migration defines RLS policies, private storage bucket policies, and pgvecto
 
 Required action:
 
-- Apply `supabase/migrations/0001_researchos.sql`, `supabase/migrations/0002_research_intelligence_workspace.sql`, and `supabase/migrations/0003_entity_relationships_and_cache.sql` to the target Supabase project.
+- Apply `supabase/migrations/0001_researchos.sql`, `supabase/migrations/0002_research_intelligence_workspace.sql`, `supabase/migrations/0003_entity_relationships_and_cache.sql`, and `supabase/migrations/0004_production_hardening.sql` to the target Supabase project.
 - Confirm the `vector` extension is enabled.
 - Confirm the `research-documents` bucket is private.
 - Confirm authenticated users can only read/write rows where `user_id = auth.uid()`.
@@ -100,7 +100,7 @@ Secrets:
 - `.env.example` contains placeholders only.
 - Supabase credentials are local-only.
 - OpenAI/Anthropic keys are server-only env vars.
-- No service-role key is required by the current code path.
+- The service-role key is optional and used only by server code for persistent rate limiting and action records.
 
 Document ingestion:
 
@@ -120,17 +120,24 @@ AI safety:
 
 Rate limiting:
 
-- API routes use in-memory per-IP rate limits.
-- This is suitable for a portfolio demo but not sufficient for horizontally scaled production.
+- API routes use in-memory per-IP rate limits as a first line of defense.
+- When `SUPABASE_SERVICE_ROLE_KEY` and migration `0004_production_hardening.sql` are configured, routes also use the persistent `check_rate_limit(...)` RPC.
+- If the persistent limiter is unavailable, routes fall back to local limits and log the issue server-side.
+
+Action records:
+
+- Uploads, exports, collection creation, document attachment, synthesis, knowledge extraction, AI outputs, and research chat write lightweight action records.
+- Action records store operation metadata, not raw document text or provider secrets.
+
+Browser headers:
+
+- `next.config.ts` applies CSP, frame denial, MIME sniffing protection, referrer policy, cross-origin opener policy, and restricted browser permissions.
 
 ## Recommended Hardening Backlog
 
-- Add persistent rate limiting with Upstash, Supabase, or Vercel KV.
 - Add OCR scanning controls before accepting scanned PDFs.
 - Add virus/malware scanning before storing uploaded files.
-- Add audit logs for uploads, exports, and AI actions.
 - Add a user-facing privacy notice explaining that document excerpts may be sent to configured AI providers.
-- Add CSP/security headers in `next.config.ts`.
 - Add integration tests against a disposable Supabase project.
 - Add CI that runs lint, tests, build, secret scan, and `npm audit --omit=dev`.
 

@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { z } from "zod";
-import { rateLimit } from "@/lib/api/rate-limit";
+import { enforceRateLimit } from "@/lib/api/rate-limit";
 import { fail, ok, unknownFail, validationFail } from "@/lib/api/response";
 import {
   getCollectionDetail,
@@ -15,7 +15,7 @@ const querySchema = z.object({
 });
 
 export async function GET(request: NextRequest) {
-  const limit = rateLimit(request, "entities:list", 60);
+  const limit = await enforceRateLimit(request, "entities:list", 60);
   if (!limit.allowed) {
     return fail("rate_limit_exceeded", "Too many requests.", 429, {
       retryAfter: limit.retryAfter,

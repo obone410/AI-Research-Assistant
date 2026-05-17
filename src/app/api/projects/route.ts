@@ -1,12 +1,12 @@
 import { NextRequest } from "next/server";
 import { fail, ok, unknownFail } from "@/lib/api/response";
-import { rateLimit } from "@/lib/api/rate-limit";
+import { enforceRateLimit } from "@/lib/api/rate-limit";
 import { getResearchContext, listProjects } from "@/lib/research/repository";
 
 export const runtime = "nodejs";
 
 export async function GET(request: NextRequest) {
-  const limit = rateLimit(request, "projects:list", 90);
+  const limit = await enforceRateLimit(request, "projects:list", 90);
   if (!limit.allowed) {
     return fail(
       "rate_limit_exceeded",

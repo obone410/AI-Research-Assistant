@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { fail, ok, unknownFail } from "@/lib/api/response";
-import { rateLimit } from "@/lib/api/rate-limit";
+import { enforceRateLimit } from "@/lib/api/rate-limit";
 import { chunkDocument } from "@/lib/documents/chunk";
 import {
   detectDocumentKind,
@@ -20,7 +20,7 @@ const MAX_EXTRACTED_TEXT_CHARS = 280_000;
 const MAX_CHUNKS_PER_DOCUMENT = 180;
 
 export async function POST(request: NextRequest) {
-  const limit = rateLimit(request, "documents:upload", 10, 60_000);
+  const limit = await enforceRateLimit(request, "documents:upload", 10, 60_000);
   if (!limit.allowed) {
     return fail(
       "rate_limit_exceeded",

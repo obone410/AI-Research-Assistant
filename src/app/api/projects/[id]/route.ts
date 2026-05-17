@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { fail, ok, unknownFail } from "@/lib/api/response";
-import { rateLimit } from "@/lib/api/rate-limit";
+import { enforceRateLimit } from "@/lib/api/rate-limit";
 import {
   getProjectDetail,
   getResearchContext,
@@ -12,7 +12,7 @@ export async function GET(
   request: NextRequest,
   context: { params: Promise<{ id: string }> },
 ) {
-  const limit = rateLimit(request, "projects:detail", 90);
+  const limit = await enforceRateLimit(request, "projects:detail", 90);
   if (!limit.allowed) {
     return fail(
       "rate_limit_exceeded",

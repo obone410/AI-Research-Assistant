@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { rateLimit } from "@/lib/api/rate-limit";
+import { enforceRateLimit } from "@/lib/api/rate-limit";
 import { fail, ok, unknownFail } from "@/lib/api/response";
 import { getResearchContext } from "@/lib/research/repository";
 import { extractCollectionKnowledge } from "@/lib/research/processing";
@@ -10,7 +10,7 @@ export async function POST(
   request: NextRequest,
   context: { params: Promise<{ id: string }> },
 ) {
-  const limit = rateLimit(request, "collections:knowledge", 16);
+  const limit = await enforceRateLimit(request, "collections:knowledge", 16);
   if (!limit.allowed) {
     return fail("rate_limit_exceeded", "AI rate limit exceeded.", 429, {
       retryAfter: limit.retryAfter,

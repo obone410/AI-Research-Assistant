@@ -1,11 +1,12 @@
 import { NextRequest } from "next/server";
 import { z } from "zod";
-import { rateLimit } from "@/lib/api/rate-limit";
+import { enforceRateLimit } from "@/lib/api/rate-limit";
 import { fail, ok, unknownFail, validationFail } from "@/lib/api/response";
 import {
   getCollectionDetail,
   getProjectDetail,
   getResearchContext,
+  recordAction,
   saveExportRecord,
 } from "@/lib/research/repository";
 import {
@@ -27,7 +28,7 @@ const requestSchema = z.object({
 });
 
 export async function POST(request: NextRequest) {
-  const limit = rateLimit(request, "exports:create", 30);
+  const limit = await enforceRateLimit(request, "exports:create", 30);
   if (!limit.allowed) {
     return fail("rate_limit_exceeded", "Export rate limit exceeded.", 429, {
       retryAfter: limit.retryAfter,
@@ -55,6 +56,15 @@ export async function POST(request: NextRequest) {
         parsed.data.format === "json"
           ? buildCollectionJsonReport(collection)
           : buildCollectionMarkdownReport(collection);
+      await recordAction(ctx, {
+        action: "report.export",
+        targetType: "collection",
+        targetId: collection.id,
+        metadata: {
+          format: parsed.data.format,
+          payloadBytes: payload.length,
+        },
+      });
 
       return ok({
         fileName: `${collection.name.replace(/[^\w\-]+/g, "-").toLowerCase()}.${parsed.data.format === "json" ? "json" : "md"}`,

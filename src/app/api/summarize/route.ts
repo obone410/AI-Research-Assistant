@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { z } from "zod";
-import { rateLimit } from "@/lib/api/rate-limit";
+import { enforceRateLimit } from "@/lib/api/rate-limit";
 import { fail, ok, unknownFail, validationFail } from "@/lib/api/response";
 import { summaryDepthSchema } from "@/lib/ai/schemas";
 import { getResearchContext } from "@/lib/research/repository";
@@ -14,7 +14,7 @@ const requestSchema = z.object({
 });
 
 export async function POST(request: NextRequest) {
-  const limit = rateLimit(request, "ai:summarize", 16);
+  const limit = await enforceRateLimit(request, "ai:summarize", 16);
   if (!limit.allowed) {
     return fail("rate_limit_exceeded", "AI rate limit exceeded.", 429, {
       retryAfter: limit.retryAfter,

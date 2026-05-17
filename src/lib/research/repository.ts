@@ -35,6 +35,7 @@ import type {
   DocumentEntity,
   DocumentChunk,
   EntityRelationship,
+  EntityDetail,
   Highlight,
   KnowledgeEntity,
   LinkedInsight,
@@ -430,7 +431,15 @@ export async function createResearchCollection(
     throw new Error(error.message);
   }
 
-  return mapCollection(data);
+  const collection = mapCollection(data);
+  await recordAction(ctx, {
+    action: "collection.create",
+    targetType: "collection",
+    targetId: collection.id,
+    metadata: { name: collection.name },
+  });
+
+  return collection;
 }
 
 export async function getProjectDetail(
@@ -541,7 +550,18 @@ export async function attachProjectToCollection(
   }
 
   await refreshCollectionCounts(ctx, collectionId);
-  return mapCollectionDocument(data);
+  const document = mapCollectionDocument(data);
+  await recordAction(ctx, {
+    action: "collection.attach_document",
+    targetType: "collection",
+    targetId: collectionId,
+    metadata: {
+      projectId,
+      documentId: document.documentId,
+    },
+  });
+
+  return document;
 }
 
 async function refreshCollectionCounts(ctx: ResearchContext, collectionId: string) {
@@ -691,6 +711,130 @@ export async function getCollectionDetail(
   };
 }
 
+export async function getEntityDetail(
+  ctx: ResearchContext,
+  entityId: string,
+): Promise<EntityDetail | null> {
+  if (ctx.mode === "demo") {
+    for (const collection of listDemoCollections()) {
+      const detail = getDemoCollection(collection.id);
+      const entity = detail.entities.find((item) => item.id === entityId);
+      if (entity) {
+        const name = entity.name.toLowerCase();
+        return {
+          ...entity,
+          documentEntities: detail.documentEntities.filter(
+            (item) => item.entityId === entity.id,
+          ),
+          relationships: detail.relationships.filter(
+            (item) =>
+              item.sourceEntityId === entity.id || item.targetEntityId === entity.id,
+          ),
+          relatedInsights: detail.insights.filter((insight) =>
+            `${insight.title} ${insight.body}`.toLowerCase().includes(name),
+          ),
+          relatedClaims: detail.claims.filter((claim) =>
+            `${claim.claim} ${claim.evidence}`.toLowerCase().includes(name),
+          ),
+          collection,
+        };
+      }
+    }
+
+    return null;
+  }
+
+  const entityResult = await ctx.supabase
+    .from("knowledge_entities")
+    .select("*")
+    .eq("id", entityId)
+    .maybeSingle();
+
+  if (entityResult.error) {
+    throw new Error(entityResult.error.message);
+  }
+
+  if (!entityResult.data) {
+    return null;
+  }
+
+  const entity = mapKnowledgeEntity(entityResult.data);
+  const [
+    collectionResult,
+    documentEntitiesResult,
+    relationshipsResult,
+    insightsResult,
+    claimsResult,
+  ] = await Promise.all([
+    entity.collectionId
+      ? ctx.supabase
+          .from("research_collections")
+          .select("*")
+          .eq("id", entity.collectionId)
+          .maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
+    ctx.supabase
+      .from("document_entities")
+      .select("*, knowledge_entities(name, type)")
+      .eq("entity_id", entity.id)
+      .order("created_at", { ascending: false }),
+    ctx.supabase
+      .from("entity_relationships")
+      .select(
+        "*, source_entity:knowledge_entities!entity_relationships_source_entity_id_fkey(name), target_entity:knowledge_entities!entity_relationships_target_entity_id_fkey(name)",
+      )
+      .or(`source_entity_id.eq.${entity.id},target_entity_id.eq.${entity.id}`)
+      .order("strength", { ascending: false }),
+    entity.collectionId
+      ? ctx.supabase
+          .from("linked_insights")
+          .select("*")
+          .eq("collection_id", entity.collectionId)
+          .order("created_at", { ascending: false })
+      : Promise.resolve({ data: [], error: null }),
+    entity.collectionId
+      ? ctx.supabase
+          .from("research_claims")
+          .select("*")
+          .eq("collection_id", entity.collectionId)
+          .order("created_at", { ascending: false })
+      : Promise.resolve({ data: [], error: null }),
+  ]);
+
+  for (const result of [
+    collectionResult,
+    documentEntitiesResult,
+    relationshipsResult,
+    insightsResult,
+    claimsResult,
+  ]) {
+    if (result.error) {
+      throw new Error(result.error.message);
+    }
+  }
+
+  const name = entity.name.toLowerCase();
+
+  return {
+    ...entity,
+    documentEntities: (documentEntitiesResult.data ?? []).map(mapDocumentEntity),
+    relationships: (relationshipsResult.data ?? []).map(mapEntityRelationship),
+    relatedInsights: (insightsResult.data ?? [])
+      .map(mapLinkedInsight)
+      .filter((insight) =>
+        `${insight.title} ${insight.body}`.toLowerCase().includes(name),
+      ),
+    relatedClaims: (claimsResult.data ?? [])
+      .map(mapResearchClaim)
+      .filter((claim) =>
+        `${claim.claim} ${claim.evidence}`.toLowerCase().includes(name),
+      ),
+    collection: collectionResult.data
+      ? mapCollection(collectionResult.data)
+      : null,
+  };
+}
+
 export async function createProjectFromDocument(
   ctx: ResearchContext,
   input: CreateProjectInput,
@@ -786,6 +930,17 @@ export async function createProjectFromDocument(
   if (!detail) {
     throw new Error("Project was created but could not be loaded.");
   }
+
+  await recordAction(ctx, {
+    action: "document.upload",
+    targetType: "project",
+    targetId: detail.id,
+    metadata: {
+      fileName: input.fileName,
+      chunkCount: input.chunks.length,
+      tokenEstimate: Math.ceil(input.rawText.length / 4),
+    },
+  });
 
   return detail;
 }
@@ -941,6 +1096,18 @@ export async function saveOutput(
   if (error) {
     throw new Error(error.message);
   }
+
+  await recordAction(ctx, {
+    action: `ai.${input.kind}`,
+    targetType: "project",
+    targetId: input.projectId,
+    metadata: {
+      documentId: input.documentId ?? null,
+      depth: input.depth ?? null,
+      provider: input.provider,
+      tokenEstimate: input.tokenEstimate,
+    },
+  });
 }
 
 export async function getCachedQaResponse(
@@ -1274,7 +1441,19 @@ export async function addQaMessage(
     throw new Error(error.message);
   }
 
-  return mapQa(data);
+  const message = mapQa(data);
+  await recordAction(ctx, {
+    action: "ai.chat",
+    targetType: "project",
+    targetId: projectId,
+    metadata: {
+      messageId: message.id,
+      provider,
+      citationCount: citations.length,
+    },
+  });
+
+  return message;
 }
 
 export async function togglePin(
@@ -1332,6 +1511,16 @@ export async function saveExportRecord(
   if (error) {
     throw new Error(error.message);
   }
+
+  await recordAction(ctx, {
+    action: "report.export",
+    targetType: "project",
+    targetId: projectId,
+    metadata: {
+      format,
+      payloadBytes: payload.length,
+    },
+  });
 }
 
 export async function saveCollectionSynthesisReport(
@@ -1373,7 +1562,19 @@ export async function saveCollectionSynthesisReport(
     throw new Error(error.message);
   }
 
-  return mapSynthesisReport(data);
+  const report = mapSynthesisReport(data);
+  await recordAction(ctx, {
+    action: "collection.synthesize",
+    targetType: "collection",
+    targetId: input.collectionId,
+    metadata: {
+      kind: input.kind,
+      provider: input.provider,
+      tokenEstimate: input.tokenEstimate,
+    },
+  });
+
+  return report;
 }
 
 export async function saveCollectionKnowledge(
@@ -1527,13 +1728,26 @@ export async function saveCollectionKnowledge(
     }
   }
 
-  return {
+  const saved = {
     entities,
     documentEntities: (documentEntitiesResult.data ?? []).map(mapDocumentEntity),
     relationships: (relationshipsResult.data ?? []).map(mapEntityRelationship),
     insights: (insightsResult.data ?? []).map(mapLinkedInsight),
     claims: (claimsResult.data ?? []).map(mapResearchClaim),
   };
+
+  await recordAction(ctx, {
+    action: "collection.extract_knowledge",
+    targetType: "collection",
+    targetId: input.collectionId,
+    metadata: {
+      entities: saved.entities.length,
+      relationships: saved.relationships.length,
+      claims: saved.claims.length,
+    },
+  });
+
+  return saved;
 }
 
 export async function addCollectionQaMessage(
@@ -1567,7 +1781,19 @@ export async function addCollectionQaMessage(
     throw new Error(error.message);
   }
 
-  return mapCollectionQa(data);
+  const message = mapCollectionQa(data);
+  await recordAction(ctx, {
+    action: "collection.chat",
+    targetType: "collection",
+    targetId: collectionId,
+    metadata: {
+      messageId: message.id,
+      provider,
+      citationCount: citations.length,
+    },
+  });
+
+  return message;
 }
 
 export async function recordUsageMetric(
@@ -1715,4 +1941,30 @@ export async function getUsageAnalytics(
     ),
     recentMetrics: metrics.slice(0, 12),
   };
+}
+
+export async function recordAction(
+  ctx: ResearchContext,
+  input: {
+    action: string;
+    targetType: string;
+    targetId?: string | null;
+    metadata?: Record<string, unknown>;
+  },
+) {
+  if (ctx.mode === "demo") {
+    return;
+  }
+
+  const { error } = await ctx.supabase.from("action_records").insert({
+    user_id: ctx.user.id,
+    action: input.action,
+    target_type: input.targetType,
+    target_id: input.targetId ?? null,
+    metadata: input.metadata ?? {},
+  });
+
+  if (error) {
+    console.warn("Action record failed:", error.message);
+  }
 }
