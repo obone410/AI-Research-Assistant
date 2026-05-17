@@ -16,6 +16,56 @@ ResearchOS is a portfolio-grade AI research intelligence workspace built with Ne
 - Persistent Supabase-backed rate limits and action records when the service role key is configured.
 - Research workspace UI with document viewer, notes, highlights, pinned answers, collection chat, command palette, and Markdown/JSON exports.
 
+## Architecture Schematic
+
+```mermaid
+flowchart LR
+    User["Researcher"] --> UI["Next.js Research Workspace"]
+    UI --> Auth["Supabase Auth"]
+    UI --> Upload["Document Upload"]
+    UI --> Chat["Research Chat"]
+    UI --> Export["Markdown / JSON Export"]
+
+    Upload --> API["Next.js API Routes"]
+    Chat --> API
+    Export --> API
+
+    API --> Validate["Zod Validation + Rate Limits"]
+    Validate --> Parse["PDF / TXT / DOCX Text Extraction"]
+    Parse --> Chunk["Token-Aware Chunking + Hash Cache"]
+    Chunk --> Storage["Supabase Storage"]
+    Chunk --> Postgres["Supabase Postgres"]
+    Postgres --> Vector["pgvector Chunk Retrieval"]
+
+    API --> Prompts["Prompt Templates"]
+    Prompts --> Provider["OpenAI / Claude Provider Layer"]
+    Provider --> Outputs["Validated AI Outputs"]
+    Vector --> Outputs
+
+    Outputs --> Summary["Summaries / Insights / Keywords"]
+    Outputs --> QA["Cited Q&A"]
+    Outputs --> Synthesis["Multi-Document Synthesis"]
+    Outputs --> Knowledge["Entities / Claims / Relationships"]
+    Outputs --> Analytics["Usage Analytics + Action Records"]
+```
+
+## Database Schema
+
+```mermaid
+erDiagram
+    users ||--o{ research_projects : owns
+    research_projects ||--o{ documents : contains
+    research_projects ||--o{ research_runs : executes
+    research_collections ||--o{ collection_documents : includes
+    research_collections }o--|| research_projects : owner_project
+    documents ||--o{ document_chunks : has
+    documents ||--o{ document_entities : mentions
+    document_entities }o--|| knowledge_entities : is
+    knowledge_entities ||--o{ entity_relationships : relates
+    research_runs ||--o{ research_steps : consists_of
+    collection_documents }o--|| documents : doc
+```
+
 ## Local Setup
 
 ```bash
