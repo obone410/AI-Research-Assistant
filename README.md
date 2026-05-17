@@ -1,42 +1,51 @@
 # ResearchOS
 
-**AI Research Intelligence Workspace for multi-document analysis, cited synthesis, and structured knowledge extraction.**
+<div align="center">
 
-[Live demo](https://ai-research-assistant-liart.vercel.app) · Next.js · Supabase · pgvector · OpenAI / Claude · TypeScript
+**AI Research Intelligence Workspace for multi-document synthesis, cited Q&A, and structured knowledge extraction.**
 
-```text
-Recruiter login
-Email: recruiter@researchos.dev
-Password: ResearchOS-Demo-2026!
-```
-
-> Shared portfolio account. Use non-confidential test documents, or create a separate account from the sign-up screen.
+[**Live Demo**](https://ai-research-assistant-liart.vercel.app) · Next.js · Supabase · pgvector · OpenAI / Claude · TypeScript
 
 ![ResearchOS workflow preview](docs/screenshots/researchos-workflow.gif)
+
+</div>
+
+---
+
+## Demo Access
+
+| Item | Value |
+| --- | --- |
+| Live app | [ai-research-assistant-liart.vercel.app](https://ai-research-assistant-liart.vercel.app) |
+| Email | `recruiter@researchos.dev` |
+| Password | `ResearchOS-Demo-2026!` |
+
+> Shared portfolio account. Use non-confidential test documents, or create a separate account from the sign-up screen.
 
 ---
 
 ## Why ResearchOS
 
-ResearchOS helps researchers, analysts, students, and AI teams organize large document collections, retrieve relevant information, synthesize findings across sources, and generate reusable research intelligence from unstructured documents.
+ResearchOS helps researchers, analysts, students, and AI teams turn unstructured document collections into reusable research intelligence.
 
-Most AI document tools summarize one file at a time. ResearchOS is built for the more realistic workflow: multiple sources, evidence-backed answers, cross-document comparison, extracted entities, reusable notes, and exportable research outputs.
+Most AI document tools summarize one file at a time. ResearchOS is built for the more realistic workflow: upload multiple sources, retrieve the right evidence, compare findings, extract entities, ask cited questions, and export a reusable report.
 
 ---
 
-## At A Glance
+## What To Try
 
-| Product Capability | What It Demonstrates |
+| In the live app | What it proves |
 | --- | --- |
-| Multi-document collections | Cross-source research workflows, not isolated summarization |
-| Cited Q&A and synthesis | RAG-style retrieval with source references |
-| Knowledge graph | Structured extraction of entities, claims, insights, and relationships |
-| Research pipeline visibility | Upload, chunk, retrieve, analyze, synthesize, export |
-| Usage analytics | Token estimates, provider usage, latency, and retrieval metrics |
+| Upload two short TXT/PDF/DOCX files | File ingestion, text extraction, chunking, and project creation |
+| Create a collection and add both documents | Multi-document research workspace behavior |
+| Generate a unified report | Cross-document synthesis with citations and confidence signals |
+| Ask a collection question | RAG-style retrieval across multiple sources |
+| Open Knowledge | Entity extraction, relationships, and linked insights |
+| Open Analytics | Token estimates, provider usage, and workflow metrics |
 
 ---
 
-## Product Proof
+## Product Tour
 
 Captured from the deployed Vercel app with the public recruiter login.
 
@@ -56,23 +65,21 @@ Captured from the deployed Vercel app with the public recruiter login.
 
 ## Technical Highlights
 
-- Multi-document semantic retrieval with pgvector.
-- Token-aware chunking and context optimization.
-- AI provider abstraction layer for OpenAI and Anthropic.
-- Strict Zod contracts for AI-generated summaries, insights, keywords, citations, and reports.
-- Structured knowledge extraction for entities, claims, linked insights, and relationships.
-- Cross-document synthesis workflows for themes, contradictions, gaps, opportunities, and recommendations.
-- Persistent research memory through notes, pins, saved sessions, reports, and exports.
-- Supabase Auth, Storage, Postgres, RLS policies, and private document buckets.
-- Cached AI response reuse and graceful fallback when provider quota is unavailable.
+| Area | Implementation |
+| --- | --- |
+| Retrieval | pgvector semantic search, chunk-level citations, hybrid lexical fallback |
+| AI pipeline | Token-aware chunking, prompt templates, structured Zod-validated outputs |
+| Multi-document reasoning | Collections, unified reports, source comparison, gaps, contradictions, recommendations |
+| Knowledge layer | Entities, claims, linked insights, relationships, entity detail routes |
+| Research memory | Notes, pins, saved sessions, exports, cached outputs |
+| Platform | Supabase Auth, Storage, Postgres, RLS policies, server-side AI calls |
+| Reliability | Demo fallback mode, rate limits, typed API contracts, lint/build/test verification |
 
 ---
 
 ## Architecture
 
 ![ResearchOS architecture](docs/architecture.png)
-
-The system is organized around four layers:
 
 | Layer | Responsibility |
 | --- | --- |
@@ -130,7 +137,8 @@ Copy-Item .env.example .env.local
 npm run dev
 ```
 
-Required environment variables:
+<details>
+<summary>Required environment variables</summary>
 
 ```bash
 NEXT_PUBLIC_SUPABASE_URL=
@@ -150,6 +158,8 @@ DEMO_MODE=false
 ```
 
 Apply Supabase migrations in `supabase/migrations` from `0001` through `0007`.
+
+</details>
 
 ---
 
