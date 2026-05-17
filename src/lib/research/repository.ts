@@ -3,26 +3,50 @@ import { isSupabaseConfigured } from "@/lib/config";
 import { embedText, vectorLiteral } from "@/lib/ai/embeddings";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import {
+  addDemoCollectionQa,
   addDemoHighlight,
   addDemoNote,
   addDemoQa,
+  addDemoUsageMetric,
+  attachDemoProjectToCollection,
   createDemoProjectFromDocument,
+  createDemoCollection,
+  createDemoPipelineRun,
+  getDemoCollection,
+  getDemoCollectionChunks,
   getDemoOutput,
   getDemoProject,
+  getDemoUsageAnalytics,
   listDemoProjects,
+  listDemoCollections,
   saveDemoOutput,
+  saveDemoKnowledge,
+  saveDemoSynthesisReport,
   toggleDemoPin,
 } from "@/lib/research/demo-store";
 import type {
   Citation,
+  CollectionDetail,
+  CollectionDocument,
+  CollectionQaMessage,
   DocumentChunk,
   Highlight,
+  KnowledgeEntity,
+  LinkedInsight,
   ProjectDetail,
   QaMessage,
+  ResearchClaim,
+  ResearchCollection,
   ResearchDocument,
   ResearchNote,
   ResearchProject,
+  ResearchPipelineRun,
+  ResearchPipelineStep,
   RetrievalHit,
+  SynthesisReport,
+  SynthesisReportKind,
+  UsageAnalytics,
+  UsageMetric,
 } from "@/lib/research/types";
 
 type DbRow = Record<string, unknown>;
@@ -131,6 +155,153 @@ function mapQa(row: DbRow): QaMessage {
   };
 }
 
+function mapCollection(row: DbRow): ResearchCollection {
+  return {
+    id: row.id as string,
+    name: row.name as string,
+    description: row.description as string | null,
+    projectCount: Number(row.project_count ?? 0),
+    documentCount: Number(row.document_count ?? 0),
+    createdAt: row.created_at as string,
+    updatedAt: row.updated_at as string,
+  };
+}
+
+function nestedText(row: DbRow, key: string, field: string) {
+  const value = row[key] as DbRow | DbRow[] | null | undefined;
+  if (Array.isArray(value)) {
+    return (value[0]?.[field] as string | undefined) ?? null;
+  }
+
+  return (value?.[field] as string | undefined) ?? null;
+}
+
+function mapCollectionDocument(row: DbRow): CollectionDocument {
+  return {
+    id: row.id as string,
+    collectionId: row.collection_id as string,
+    projectId: row.project_id as string,
+    documentId: row.document_id as string | null,
+    projectTitle:
+      (row.project_title as string | undefined) ??
+      nestedText(row, "research_projects", "title") ??
+      "Research project",
+    fileName:
+      (row.file_name as string | undefined) ??
+      nestedText(row, "documents", "file_name"),
+    addedAt: row.added_at as string,
+  };
+}
+
+function mapSynthesisReport(row: DbRow): SynthesisReport {
+  return {
+    id: row.id as string,
+    collectionId: row.collection_id as string,
+    kind: row.kind as SynthesisReportKind,
+    title: row.title as string,
+    output: row.output,
+    citations: (row.citations ?? []) as Citation[],
+    provider: row.provider as string,
+    model: row.model as string,
+    tokenEstimate: Number(row.token_estimate ?? 0),
+    createdAt: row.created_at as string,
+  };
+}
+
+function mapKnowledgeEntity(row: DbRow): KnowledgeEntity {
+  return {
+    id: row.id as string,
+    collectionId: row.collection_id as string | null,
+    projectId: row.project_id as string | null,
+    name: row.name as string,
+    type: row.type as string,
+    summary: row.summary as string,
+    confidence: row.confidence as KnowledgeEntity["confidence"],
+    mentions: Number(row.mentions ?? 1),
+    createdAt: row.created_at as string,
+  };
+}
+
+function mapLinkedInsight(row: DbRow): LinkedInsight {
+  return {
+    id: row.id as string,
+    collectionId: row.collection_id as string | null,
+    projectId: row.project_id as string | null,
+    title: row.title as string,
+    body: row.body as string,
+    category: row.category as string,
+    confidence: row.confidence as LinkedInsight["confidence"],
+    citations: (row.citations ?? []) as Citation[],
+    createdAt: row.created_at as string,
+  };
+}
+
+function mapResearchClaim(row: DbRow): ResearchClaim {
+  return {
+    id: row.id as string,
+    collectionId: row.collection_id as string | null,
+    projectId: row.project_id as string | null,
+    claim: row.claim as string,
+    evidence: row.evidence as string,
+    stance: row.stance as ResearchClaim["stance"],
+    confidence: row.confidence as ResearchClaim["confidence"],
+    citations: (row.citations ?? []) as Citation[],
+    createdAt: row.created_at as string,
+  };
+}
+
+function mapCollectionQa(row: DbRow): CollectionQaMessage {
+  return {
+    id: row.id as string,
+    collectionId: row.collection_id as string,
+    question: row.question as string,
+    answer: row.answer as string,
+    citations: (row.citations ?? []) as Citation[],
+    provider: row.provider as string,
+    model: row.model as string,
+    pinned: Boolean(row.pinned),
+    createdAt: row.created_at as string,
+  };
+}
+
+function mapPipelineStep(row: DbRow): ResearchPipelineStep {
+  return {
+    id: row.id as string,
+    runId: row.run_id as string,
+    name: row.name as string,
+    status: row.status as ResearchPipelineStep["status"],
+    detail: row.detail as string | null,
+    startedAt: row.started_at as string | null,
+    completedAt: row.completed_at as string | null,
+  };
+}
+
+function mapPipelineRun(row: DbRow, steps: ResearchPipelineStep[]): ResearchPipelineRun {
+  return {
+    id: row.id as string,
+    collectionId: row.collection_id as string | null,
+    projectId: row.project_id as string | null,
+    name: row.name as string,
+    status: row.status as ResearchPipelineRun["status"],
+    createdAt: row.created_at as string,
+    completedAt: row.completed_at as string | null,
+    steps,
+  };
+}
+
+function mapUsageMetric(row: DbRow): UsageMetric {
+  return {
+    id: row.id as string,
+    action: row.action as string,
+    provider: row.provider as string,
+    model: row.model as string,
+    tokenEstimate: Number(row.token_estimate ?? 0),
+    latencyMs: Number(row.latency_ms ?? 0),
+    chunkCount: Number(row.chunk_count ?? 0),
+    createdAt: row.created_at as string,
+  };
+}
+
 export async function getResearchContext(): Promise<ResearchContext | null> {
   if (!isSupabaseConfigured()) {
     return {
@@ -171,6 +342,49 @@ export async function listProjects(ctx: ResearchContext) {
   }
 
   return (data ?? []).map(mapProject);
+}
+
+export async function listCollections(ctx: ResearchContext) {
+  if (ctx.mode === "demo") {
+    return listDemoCollections();
+  }
+
+  const { data, error } = await ctx.supabase
+    .from("research_collections")
+    .select("*")
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return (data ?? []).map(mapCollection);
+}
+
+export async function createResearchCollection(
+  ctx: ResearchContext,
+  name: string,
+  description?: string | null,
+) {
+  if (ctx.mode === "demo") {
+    return createDemoCollection(name, description);
+  }
+
+  const { data, error } = await ctx.supabase
+    .from("research_collections")
+    .insert({
+      user_id: ctx.user.id,
+      name,
+      description: description ?? null,
+    })
+    .select("*")
+    .single();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return mapCollection(data);
 }
 
 export async function getProjectDetail(
@@ -244,6 +458,174 @@ export async function getProjectDetail(
     notes: (notesResult.data ?? []).map(mapNote),
     highlights: (highlightsResult.data ?? []).map(mapHighlight),
     qa: (qaResult.data ?? []).map(mapQa),
+  };
+}
+
+export async function attachProjectToCollection(
+  ctx: ResearchContext,
+  collectionId: string,
+  projectId: string,
+) {
+  if (ctx.mode === "demo") {
+    return attachDemoProjectToCollection(collectionId, projectId);
+  }
+
+  const project = await getProjectDetail(ctx, projectId);
+  if (!project) {
+    return null;
+  }
+
+  const firstDocument = project.documents[0];
+  const { data, error } = await ctx.supabase
+    .from("collection_documents")
+    .upsert(
+      {
+        collection_id: collectionId,
+        project_id: projectId,
+        document_id: firstDocument?.id ?? null,
+        user_id: ctx.user.id,
+      },
+      { onConflict: "collection_id,project_id" },
+    )
+    .select("*, research_projects(title), documents(file_name)")
+    .single();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  await refreshCollectionCounts(ctx, collectionId);
+  return mapCollectionDocument(data);
+}
+
+async function refreshCollectionCounts(ctx: ResearchContext, collectionId: string) {
+  if (ctx.mode === "demo") {
+    return;
+  }
+
+  const { data, error } = await ctx.supabase
+    .from("collection_documents")
+    .select("id")
+    .eq("collection_id", collectionId);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  const count = data?.length ?? 0;
+  const update = await ctx.supabase
+    .from("research_collections")
+    .update({
+      project_count: count,
+      document_count: count,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", collectionId);
+
+  if (update.error) {
+    throw new Error(update.error.message);
+  }
+}
+
+export async function getCollectionDetail(
+  ctx: ResearchContext,
+  collectionId: string,
+): Promise<CollectionDetail | null> {
+  if (ctx.mode === "demo") {
+    return getDemoCollection(collectionId);
+  }
+
+  const [
+    collectionResult,
+    documentsResult,
+    reportsResult,
+    entitiesResult,
+    insightsResult,
+    claimsResult,
+    qaResult,
+    runsResult,
+  ] = await Promise.all([
+    ctx.supabase
+      .from("research_collections")
+      .select("*")
+      .eq("id", collectionId)
+      .maybeSingle(),
+    ctx.supabase
+      .from("collection_documents")
+      .select("*, research_projects(title), documents(file_name)")
+      .eq("collection_id", collectionId)
+      .order("added_at", { ascending: false }),
+    ctx.supabase
+      .from("synthesis_reports")
+      .select("*")
+      .eq("collection_id", collectionId)
+      .order("created_at", { ascending: false }),
+    ctx.supabase
+      .from("knowledge_entities")
+      .select("*")
+      .eq("collection_id", collectionId)
+      .order("mentions", { ascending: false }),
+    ctx.supabase
+      .from("linked_insights")
+      .select("*")
+      .eq("collection_id", collectionId)
+      .order("created_at", { ascending: false }),
+    ctx.supabase
+      .from("research_claims")
+      .select("*")
+      .eq("collection_id", collectionId)
+      .order("created_at", { ascending: false }),
+    ctx.supabase
+      .from("collection_qa_messages")
+      .select("*")
+      .eq("collection_id", collectionId)
+      .order("created_at", { ascending: false }),
+    ctx.supabase
+      .from("research_pipeline_runs")
+      .select("*")
+      .eq("collection_id", collectionId)
+      .order("created_at", { ascending: false })
+      .limit(8),
+  ]);
+
+  if (collectionResult.error) {
+    throw new Error(collectionResult.error.message);
+  }
+
+  if (!collectionResult.data) {
+    return null;
+  }
+
+  const runIds = (runsResult.data ?? []).map((run) => run.id as string);
+  const stepsResult = runIds.length
+    ? await ctx.supabase
+        .from("research_pipeline_steps")
+        .select("*")
+        .in("run_id", runIds)
+        .order("created_at", { ascending: true })
+    : { data: [], error: null };
+
+  if (stepsResult.error) {
+    throw new Error(stepsResult.error.message);
+  }
+
+  const stepsByRun = new Map<string, ResearchPipelineStep[]>();
+  for (const row of stepsResult.data ?? []) {
+    const step = mapPipelineStep(row);
+    stepsByRun.set(step.runId, [...(stepsByRun.get(step.runId) ?? []), step]);
+  }
+
+  return {
+    ...mapCollection(collectionResult.data),
+    documents: (documentsResult.data ?? []).map(mapCollectionDocument),
+    reports: (reportsResult.data ?? []).map(mapSynthesisReport),
+    entities: (entitiesResult.data ?? []).map(mapKnowledgeEntity),
+    insights: (insightsResult.data ?? []).map(mapLinkedInsight),
+    claims: (claimsResult.data ?? []).map(mapResearchClaim),
+    qa: (qaResult.data ?? []).map(mapCollectionQa),
+    pipelineRuns: (runsResult.data ?? []).map((run) =>
+      mapPipelineRun(run, stepsByRun.get(run.id as string) ?? []),
+    ),
   };
 }
 
@@ -362,6 +744,56 @@ export async function getProjectChunks(ctx: ResearchContext, projectId: string) 
   }
 
   return (data ?? []).map(mapChunk);
+}
+
+export async function getCollectionChunks(
+  ctx: ResearchContext,
+  collectionId: string,
+): Promise<RetrievalHit[]> {
+  if (ctx.mode === "demo") {
+    return getDemoCollectionChunks(collectionId);
+  }
+
+  const linksResult = await ctx.supabase
+    .from("collection_documents")
+    .select("*, research_projects(title), documents(file_name)")
+    .eq("collection_id", collectionId);
+
+  if (linksResult.error) {
+    throw new Error(linksResult.error.message);
+  }
+
+  const links = (linksResult.data ?? []).map(mapCollectionDocument);
+  const projectIds = links.map((link) => link.projectId);
+
+  if (!projectIds.length) {
+    return [];
+  }
+
+  const chunksResult = await ctx.supabase
+    .from("document_chunks")
+    .select("*")
+    .in("project_id", projectIds)
+    .order("chunk_index", { ascending: true })
+    .limit(180);
+
+  if (chunksResult.error) {
+    throw new Error(chunksResult.error.message);
+  }
+
+  const linkByProject = new Map(links.map((link) => [link.projectId, link]));
+
+  return (chunksResult.data ?? []).map((row) => {
+    const chunk = mapChunk(row);
+    const link = linkByProject.get(chunk.projectId);
+
+    return {
+      ...chunk,
+      similarity: 0,
+      documentTitle: link?.fileName ?? null,
+      projectTitle: link?.projectTitle ?? null,
+    };
+  });
 }
 
 export async function getCachedOutput(
@@ -526,6 +958,50 @@ export async function retrieveRelevantChunks(
   return lexicalRetrieve(chunks, question, count);
 }
 
+export async function retrieveRelevantCollectionChunks(
+  ctx: ResearchContext,
+  collectionId: string,
+  question: string,
+  count = 8,
+): Promise<RetrievalHit[]> {
+  const collection = await getCollectionDetail(ctx, collectionId);
+  if (!collection) {
+    return [];
+  }
+
+  if (ctx.mode === "supabase" && collection.documents.length) {
+    const perProject = Math.max(3, Math.ceil(count / collection.documents.length));
+    const groupedHits = await Promise.all(
+      collection.documents.map(async (document) => {
+        const hits = await retrieveRelevantChunks(
+          ctx,
+          document.projectId,
+          question,
+          perProject,
+        );
+
+        return hits.map((hit) => ({
+          ...hit,
+          documentTitle: document.fileName ?? null,
+          projectTitle: document.projectTitle,
+        }));
+      }),
+    );
+
+    const hits = groupedHits
+      .flat()
+      .sort((a, b) => b.similarity - a.similarity)
+      .slice(0, count);
+
+    if (hits.length) {
+      return hits;
+    }
+  }
+
+  const chunks = await getCollectionChunks(ctx, collectionId);
+  return lexicalRetrieve(chunks, question, count);
+}
+
 export async function addNote(
   ctx: ResearchContext,
   projectId: string,
@@ -678,4 +1154,311 @@ export async function saveExportRecord(
   if (error) {
     throw new Error(error.message);
   }
+}
+
+export async function saveCollectionSynthesisReport(
+  ctx: ResearchContext,
+  input: {
+    collectionId: string;
+    kind: SynthesisReportKind;
+    title: string;
+    output: unknown;
+    citations: Citation[];
+    provider: string;
+    model: string;
+    promptVersion: string;
+    tokenEstimate: number;
+  },
+) {
+  if (ctx.mode === "demo") {
+    return saveDemoSynthesisReport(input);
+  }
+
+  const { data, error } = await ctx.supabase
+    .from("synthesis_reports")
+    .insert({
+      collection_id: input.collectionId,
+      user_id: ctx.user.id,
+      kind: input.kind,
+      title: input.title,
+      output: input.output,
+      citations: input.citations,
+      provider: input.provider,
+      model: input.model,
+      prompt_version: input.promptVersion,
+      token_estimate: input.tokenEstimate,
+    })
+    .select("*")
+    .single();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return mapSynthesisReport(data);
+}
+
+export async function saveCollectionKnowledge(
+  ctx: ResearchContext,
+  input: {
+    collectionId: string;
+    entities: Array<Omit<KnowledgeEntity, "id" | "createdAt" | "collectionId">>;
+    insights: Array<Omit<LinkedInsight, "id" | "createdAt" | "collectionId">>;
+    claims: Array<Omit<ResearchClaim, "id" | "createdAt" | "collectionId">>;
+  },
+) {
+  if (ctx.mode === "demo") {
+    return saveDemoKnowledge(input);
+  }
+
+  await Promise.all([
+    ctx.supabase
+      .from("knowledge_entities")
+      .delete()
+      .eq("collection_id", input.collectionId),
+    ctx.supabase
+      .from("linked_insights")
+      .delete()
+      .eq("collection_id", input.collectionId),
+    ctx.supabase
+      .from("research_claims")
+      .delete()
+      .eq("collection_id", input.collectionId),
+  ]);
+
+  const entityRows = input.entities.map((entity) => ({
+    collection_id: input.collectionId,
+    project_id: entity.projectId ?? null,
+    user_id: ctx.user.id,
+    name: entity.name,
+    type: entity.type,
+    summary: entity.summary,
+    confidence: entity.confidence,
+    mentions: entity.mentions,
+  }));
+  const insightRows = input.insights.map((insight) => ({
+    collection_id: input.collectionId,
+    project_id: insight.projectId ?? null,
+    user_id: ctx.user.id,
+    title: insight.title,
+    body: insight.body,
+    category: insight.category,
+    confidence: insight.confidence,
+    citations: insight.citations,
+  }));
+  const claimRows = input.claims.map((claim) => ({
+    collection_id: input.collectionId,
+    project_id: claim.projectId ?? null,
+    user_id: ctx.user.id,
+    claim: claim.claim,
+    evidence: claim.evidence,
+    stance: claim.stance,
+    confidence: claim.confidence,
+    citations: claim.citations,
+  }));
+
+  const [entitiesResult, insightsResult, claimsResult] = await Promise.all([
+    entityRows.length
+      ? ctx.supabase.from("knowledge_entities").insert(entityRows).select("*")
+      : Promise.resolve({ data: [], error: null }),
+    insightRows.length
+      ? ctx.supabase.from("linked_insights").insert(insightRows).select("*")
+      : Promise.resolve({ data: [], error: null }),
+    claimRows.length
+      ? ctx.supabase.from("research_claims").insert(claimRows).select("*")
+      : Promise.resolve({ data: [], error: null }),
+  ]);
+
+  for (const result of [entitiesResult, insightsResult, claimsResult]) {
+    if (result.error) {
+      throw new Error(result.error.message);
+    }
+  }
+
+  return {
+    entities: (entitiesResult.data ?? []).map(mapKnowledgeEntity),
+    insights: (insightsResult.data ?? []).map(mapLinkedInsight),
+    claims: (claimsResult.data ?? []).map(mapResearchClaim),
+  };
+}
+
+export async function addCollectionQaMessage(
+  ctx: ResearchContext,
+  collectionId: string,
+  question: string,
+  answer: string,
+  citations: Citation[],
+  provider: string,
+  model: string,
+) {
+  if (ctx.mode === "demo") {
+    return addDemoCollectionQa(collectionId, question, answer, citations, provider, model);
+  }
+
+  const { data, error } = await ctx.supabase
+    .from("collection_qa_messages")
+    .insert({
+      collection_id: collectionId,
+      user_id: ctx.user.id,
+      question,
+      answer,
+      citations,
+      provider,
+      model,
+    })
+    .select("*")
+    .single();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return mapCollectionQa(data);
+}
+
+export async function recordUsageMetric(
+  ctx: ResearchContext,
+  input: Omit<UsageMetric, "id" | "createdAt"> & {
+    collectionId?: string | null;
+    projectId?: string | null;
+  },
+) {
+  if (ctx.mode === "demo") {
+    return addDemoUsageMetric(input);
+  }
+
+  const { data, error } = await ctx.supabase
+    .from("ai_usage_metrics")
+    .insert({
+      collection_id: input.collectionId ?? null,
+      project_id: input.projectId ?? null,
+      user_id: ctx.user.id,
+      action: input.action,
+      provider: input.provider,
+      model: input.model,
+      token_estimate: input.tokenEstimate,
+      latency_ms: input.latencyMs,
+      chunk_count: input.chunkCount,
+    })
+    .select("*")
+    .single();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return mapUsageMetric(data);
+}
+
+export async function recordPipelineRun(
+  ctx: ResearchContext,
+  input: {
+    collectionId?: string | null;
+    projectId?: string | null;
+    name: string;
+    steps: string[];
+  },
+) {
+  if (ctx.mode === "demo") {
+    return createDemoPipelineRun(input);
+  }
+
+  const now = new Date().toISOString();
+  const runResult = await ctx.supabase
+    .from("research_pipeline_runs")
+    .insert({
+      collection_id: input.collectionId ?? null,
+      project_id: input.projectId ?? null,
+      user_id: ctx.user.id,
+      name: input.name,
+      status: "complete",
+      completed_at: now,
+    })
+    .select("*")
+    .single();
+
+  if (runResult.error) {
+    throw new Error(runResult.error.message);
+  }
+
+  const stepRows = input.steps.map((step) => ({
+    run_id: runResult.data.id,
+    user_id: ctx.user.id,
+    name: step,
+    status: "complete",
+    detail: `${step} completed.`,
+    started_at: now,
+    completed_at: now,
+  }));
+
+  const stepsResult = stepRows.length
+    ? await ctx.supabase
+        .from("research_pipeline_steps")
+        .insert(stepRows)
+        .select("*")
+    : { data: [], error: null };
+
+  if (stepsResult.error) {
+    throw new Error(stepsResult.error.message);
+  }
+
+  return mapPipelineRun(
+    runResult.data,
+    (stepsResult.data ?? []).map(mapPipelineStep),
+  );
+}
+
+export async function getUsageAnalytics(
+  ctx: ResearchContext,
+): Promise<UsageAnalytics> {
+  if (ctx.mode === "demo") {
+    return getDemoUsageAnalytics();
+  }
+
+  const { data, error } = await ctx.supabase
+    .from("ai_usage_metrics")
+    .select("*")
+    .order("created_at", { ascending: false })
+    .limit(100);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  const metrics = (data ?? []).map(mapUsageMetric);
+  const totalTokens = metrics.reduce((sum, metric) => sum + metric.tokenEstimate, 0);
+  const totalLatency = metrics.reduce((sum, metric) => sum + metric.latencyMs, 0);
+  const totalChunks = metrics.reduce((sum, metric) => sum + metric.chunkCount, 0);
+  const byProvider = new Map<string, UsageMetric[]>();
+
+  for (const metric of metrics) {
+    byProvider.set(metric.provider, [
+      ...(byProvider.get(metric.provider) ?? []),
+      metric,
+    ]);
+  }
+
+  return {
+    totalTokens,
+    totalRuns: metrics.length,
+    averageLatencyMs: metrics.length ? Math.round(totalLatency / metrics.length) : 0,
+    retrievalEfficiency: totalChunks
+      ? Math.min(1, Math.max(0.1, metrics.length / totalChunks))
+      : 0,
+    providerBreakdown: Array.from(byProvider.entries()).map(
+      ([provider, providerMetrics]) => ({
+        provider,
+        runs: providerMetrics.length,
+        tokens: providerMetrics.reduce(
+          (sum, metric) => sum + metric.tokenEstimate,
+          0,
+        ),
+        averageLatencyMs: Math.round(
+          providerMetrics.reduce((sum, metric) => sum + metric.latencyMs, 0) /
+            providerMetrics.length,
+        ),
+      }),
+    ),
+    recentMetrics: metrics.slice(0, 12),
+  };
 }

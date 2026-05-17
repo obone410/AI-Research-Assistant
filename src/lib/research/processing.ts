@@ -1,10 +1,14 @@
 import { z } from "zod";
 import {
   answerSchema,
+  knowledgeExtractionSchema,
   insightsSchema,
   keywordsSchema,
+  synthesisReportSchema,
   summarySchema,
   type AnswerOutput,
+  type KnowledgeExtractionOutput,
+  type SynthesisReportOutput,
 } from "@/lib/ai/schemas";
 import { embedTexts } from "@/lib/ai/embeddings";
 import { promptTemplates, renderPrompt } from "@/lib/ai/prompts";
@@ -17,22 +21,33 @@ import { compactForPrompt, estimateTokens } from "@/lib/documents/chunk";
 import { sha256 } from "@/lib/research/hash";
 import {
   addQaMessage,
+  addCollectionQaMessage,
   getCachedOutput,
+  getCollectionDetail,
+  getCollectionChunks,
   getProjectChunks,
+  recordPipelineRun,
+  recordUsageMetric,
   retrieveRelevantChunks,
+  retrieveRelevantCollectionChunks,
   saveOutput,
+  saveCollectionKnowledge,
+  saveCollectionSynthesisReport,
   type ResearchContext,
 } from "@/lib/research/repository";
 import {
   demoAnswer,
+  demoKnowledgeExtraction,
   demoInsights,
   demoKeywords,
+  demoSynthesis,
   demoSummary,
 } from "@/lib/research/demo-ai";
 import type {
   Citation,
   DocumentChunk,
   RetrievalHit,
+  SynthesisReportKind,
   SummaryDepth,
 } from "@/lib/research/types";
 
@@ -58,6 +73,10 @@ function citationFromChunk(chunk: DocumentChunk | RetrievalHit): Citation {
   return {
     chunkId: chunk.id,
     chunkIndex: chunk.chunkIndex,
+    documentId: chunk.documentId,
+    documentTitle: "documentTitle" in chunk ? chunk.documentTitle ?? null : null,
+    projectId: chunk.projectId,
+    projectTitle: "projectTitle" in chunk ? chunk.projectTitle ?? null : null,
     sectionTitle: chunk.sectionTitle ?? null,
     pageStart: chunk.pageStart ?? null,
     pageEnd: chunk.pageEnd ?? null,
@@ -87,6 +106,16 @@ function normalizeCitations<T extends { citations: Citation[] }>(
         ...citation,
         chunkId: chunk.id,
         chunkIndex: chunk.chunkIndex,
+        documentId: chunk.documentId,
+        documentTitle:
+          "documentTitle" in chunk
+            ? chunk.documentTitle ?? citation.documentTitle ?? null
+            : citation.documentTitle ?? null,
+        projectId: chunk.projectId,
+        projectTitle:
+          "projectTitle" in chunk
+            ? chunk.projectTitle ?? citation.projectTitle ?? null
+            : citation.projectTitle ?? null,
         sectionTitle: chunk.sectionTitle ?? citation.sectionTitle ?? null,
         pageStart: chunk.pageStart ?? citation.pageStart ?? null,
         pageEnd: chunk.pageEnd ?? citation.pageEnd ?? null,
@@ -358,6 +387,288 @@ export async function answerQuestion(
       "demo",
       "demo",
     );
+    return { output, message: saved, cached: false, demo: true };
+  }
+}
+
+function formatCollectionContext(hits: RetrievalHit[]) {
+  return hits
+    .map(
+      (hit) =>
+        `[source=${hit.projectTitle ?? "Untitled project"}; document=${hit.documentTitle ?? hit.documentId}; chunkId=${hit.id}; chunkIndex=${hit.chunkIndex}; section=${hit.sectionTitle ?? "Untitled"}; similarity=${hit.similarity.toFixed(2)}]\n${hit.content}`,
+    )
+    .join("\n\n");
+}
+
+function reportTitle(kind: SynthesisReportKind, collectionName: string) {
+  const label: Record<SynthesisReportKind, string> = {
+    combined_summary: "Unified Research Report",
+    source_comparison: "Source Comparison",
+    executive_brief: "Executive Brief",
+    trend_analysis: "Trend Analysis",
+    research_gaps: "Research Gaps",
+  };
+
+  return `${collectionName} ${label[kind]}`;
+}
+
+function normalizeKnowledge(
+  output: KnowledgeExtractionOutput,
+  hits: RetrievalHit[],
+) {
+  return {
+    entities: output.entities.map((entity) => ({
+      ...entity,
+      projectId: null,
+    })),
+    insights: output.linkedInsights.map((insight) => ({
+      ...normalizeCitations(insight, hits),
+      projectId: null,
+    })),
+    claims: output.claims.map((claim) => ({
+      ...normalizeCitations(claim, hits),
+      projectId: null,
+    })),
+  };
+}
+
+export async function synthesizeCollection(
+  ctx: ResearchContext,
+  collectionId: string,
+  kind: SynthesisReportKind,
+) {
+  const startedAt = Date.now();
+  const collection = await getCollectionDetail(ctx, collectionId);
+  const chunks = await getCollectionChunks(ctx, collectionId);
+  const selectedChunks = chunks.slice(0, kind === "executive_brief" ? 10 : 16);
+  const fallbackName = collection?.name ?? "Research collection";
+
+  await recordPipelineRun(ctx, {
+    collectionId,
+    name: reportTitle(kind, fallbackName),
+    steps: ["Upload", "Extract", "Chunk", "Analyze", "Summarize", "Compare", "Export"],
+  });
+
+  try {
+    if (!selectedChunks.length) {
+      throw new AiProviderUnavailableError();
+    }
+
+    const template = promptTemplates.synthesizeCollection;
+    const prompt = renderPrompt(template, {
+      kind,
+      collectionName: fallbackName,
+      context: compactForPrompt(formatCollectionContext(selectedChunks), 6800),
+    });
+    const { output, metadata } = await generateStructuredJson({
+      template,
+      prompt,
+      schema: synthesisReportSchema,
+    });
+    const normalized = normalizeCitations(output, selectedChunks) as SynthesisReportOutput;
+    const title = normalized.title || reportTitle(kind, fallbackName);
+    const report = await saveCollectionSynthesisReport(ctx, {
+      collectionId,
+      kind,
+      title,
+      output: normalized,
+      citations: normalized.citations,
+      provider: metadata.provider,
+      model: metadata.model,
+      promptVersion: metadata.promptVersion,
+      tokenEstimate: estimateTokens(prompt),
+    });
+
+    await recordUsageMetric(ctx, {
+      collectionId,
+      projectId: null,
+      action: `collection.${kind}`,
+      provider: metadata.provider,
+      model: metadata.model,
+      tokenEstimate: estimateTokens(prompt),
+      latencyMs: Date.now() - startedAt,
+      chunkCount: selectedChunks.length,
+    });
+
+    return { output: normalized, report, cached: false };
+  } catch (error) {
+    if (!shouldUseDemoFallback(error)) {
+      throw error;
+    }
+
+    const output = demoSynthesis(kind, fallbackName, selectedChunks);
+    const report = await saveCollectionSynthesisReport(ctx, {
+      collectionId,
+      kind,
+      title: output.title,
+      output,
+      citations: output.citations,
+      provider: "demo",
+      model: "demo",
+      promptVersion: "v1",
+      tokenEstimate: 0,
+    });
+    await recordUsageMetric(ctx, {
+      collectionId,
+      projectId: null,
+      action: `collection.${kind}`,
+      provider: "demo",
+      model: "demo",
+      tokenEstimate: 0,
+      latencyMs: Date.now() - startedAt,
+      chunkCount: selectedChunks.length,
+    });
+
+    return { output, report, cached: false, demo: true };
+  }
+}
+
+export async function extractCollectionKnowledge(
+  ctx: ResearchContext,
+  collectionId: string,
+) {
+  const startedAt = Date.now();
+  const chunks = await getCollectionChunks(ctx, collectionId);
+  const selectedChunks = chunks.slice(0, 16);
+
+  try {
+    if (!selectedChunks.length) {
+      throw new AiProviderUnavailableError();
+    }
+
+    const template = promptTemplates.extractKnowledge;
+    const prompt = renderPrompt(template, {
+      context: compactForPrompt(formatCollectionContext(selectedChunks), 6200),
+    });
+    const { output, metadata } = await generateStructuredJson({
+      template,
+      prompt,
+      schema: knowledgeExtractionSchema,
+    });
+    const normalized = normalizeKnowledge(output, selectedChunks);
+    const saved = await saveCollectionKnowledge(ctx, {
+      collectionId,
+      ...normalized,
+    });
+
+    await recordPipelineRun(ctx, {
+      collectionId,
+      name: "Knowledge extraction",
+      steps: ["Analyze", "Extract entities", "Link insights", "Store research memory"],
+    });
+    await recordUsageMetric(ctx, {
+      collectionId,
+      projectId: null,
+      action: "collection.knowledge",
+      provider: metadata.provider,
+      model: metadata.model,
+      tokenEstimate: estimateTokens(prompt),
+      latencyMs: Date.now() - startedAt,
+      chunkCount: selectedChunks.length,
+    });
+
+    return { output, saved, cached: false };
+  } catch (error) {
+    if (!shouldUseDemoFallback(error)) {
+      throw error;
+    }
+
+    const output = demoKnowledgeExtraction(selectedChunks);
+    const saved = await saveCollectionKnowledge(ctx, {
+      collectionId,
+      ...normalizeKnowledge(output, selectedChunks),
+    });
+    await recordPipelineRun(ctx, {
+      collectionId,
+      name: "Knowledge extraction",
+      steps: ["Analyze", "Extract entities", "Link insights", "Store research memory"],
+    });
+    await recordUsageMetric(ctx, {
+      collectionId,
+      projectId: null,
+      action: "collection.knowledge",
+      provider: "demo",
+      model: "demo",
+      tokenEstimate: 0,
+      latencyMs: Date.now() - startedAt,
+      chunkCount: selectedChunks.length,
+    });
+
+    return { output, saved, cached: false, demo: true };
+  }
+}
+
+export async function answerCollectionQuestion(
+  ctx: ResearchContext,
+  collectionId: string,
+  question: string,
+) {
+  const startedAt = Date.now();
+  const hits = await retrieveRelevantCollectionChunks(ctx, collectionId, question, 8);
+
+  try {
+    const template = promptTemplates.answerCollectionQuestion;
+    const prompt = renderPrompt(template, {
+      question,
+      context: compactForPrompt(formatCollectionContext(hits), 5200),
+    });
+    const { output, metadata } = await generateStructuredJson({
+      template,
+      prompt,
+      schema: answerSchema,
+    });
+
+    const normalized = normalizeCitations(output, hits) as AnswerOutput;
+    const saved = await addCollectionQaMessage(
+      ctx,
+      collectionId,
+      question,
+      normalized.answer,
+      normalized.citations.length
+        ? normalized.citations
+        : hits.slice(0, 3).map(citationFromChunk),
+      metadata.provider,
+      metadata.model,
+    );
+
+    await recordUsageMetric(ctx, {
+      collectionId,
+      projectId: null,
+      action: "collection.chat",
+      provider: metadata.provider,
+      model: metadata.model,
+      tokenEstimate: estimateTokens(prompt),
+      latencyMs: Date.now() - startedAt,
+      chunkCount: hits.length,
+    });
+
+    return { output: normalized, message: saved, cached: false };
+  } catch (error) {
+    if (!shouldUseDemoFallback(error)) {
+      throw error;
+    }
+
+    const output = demoAnswer(question, hits);
+    const saved = await addCollectionQaMessage(
+      ctx,
+      collectionId,
+      question,
+      output.answer,
+      output.citations,
+      "demo",
+      "demo",
+    );
+    await recordUsageMetric(ctx, {
+      collectionId,
+      projectId: null,
+      action: "collection.chat",
+      provider: "demo",
+      model: "demo",
+      tokenEstimate: 0,
+      latencyMs: Date.now() - startedAt,
+      chunkCount: hits.length,
+    });
+
     return { output, message: saved, cached: false, demo: true };
   }
 }

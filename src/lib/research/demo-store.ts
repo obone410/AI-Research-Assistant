@@ -2,12 +2,24 @@ import { randomUUID } from "node:crypto";
 import { chunkDocument } from "@/lib/documents/chunk";
 import type {
   Citation,
+  CollectionDetail,
+  CollectionDocument,
+  CollectionQaMessage,
   Highlight,
+  KnowledgeEntity,
+  LinkedInsight,
   ProjectDetail,
   QaMessage,
+  ResearchClaim,
+  ResearchCollection,
   ResearchDocument,
   ResearchNote,
   ResearchProject,
+  ResearchPipelineRun,
+  SynthesisReport,
+  SynthesisReportKind,
+  UsageAnalytics,
+  UsageMetric,
 } from "@/lib/research/types";
 
 type StoredOutput = {
@@ -20,6 +32,15 @@ type StoredOutput = {
 type DemoState = {
   projects: ProjectDetail[];
   outputs: StoredOutput[];
+  collections: ResearchCollection[];
+  collectionDocuments: CollectionDocument[];
+  synthesisReports: SynthesisReport[];
+  entities: KnowledgeEntity[];
+  linkedInsights: LinkedInsight[];
+  claims: ResearchClaim[];
+  collectionQa: CollectionQaMessage[];
+  pipelineRuns: ResearchPipelineRun[];
+  metrics: UsageMetric[];
 };
 
 const demoText = `ResearchOS Market Intelligence Brief
@@ -105,12 +126,88 @@ const globalWithDemoStore = globalThis as typeof globalThis & {
   __researchOsDemoStore?: DemoState;
 };
 
+function createSeedStore(): DemoState {
+  const project = createSeedProject();
+  const now = new Date().toISOString();
+  const collection: ResearchCollection = {
+    id: "demo-collection",
+    name: "AI Research Intelligence Workspace",
+    description: "A demo collection for multi-document synthesis workflows.",
+    projectCount: 1,
+    documentCount: 1,
+    createdAt: now,
+    updatedAt: now,
+  };
+
+  return {
+    projects: [project],
+    outputs: [],
+    collections: [collection],
+    collectionDocuments: [
+      {
+        id: "demo-collection-document",
+        collectionId: collection.id,
+        projectId: project.id,
+        documentId: project.documents[0]?.id ?? null,
+        projectTitle: project.title,
+        fileName: project.documents[0]?.fileName ?? null,
+        addedAt: now,
+      },
+    ],
+    synthesisReports: [],
+    entities: [],
+    linkedInsights: [],
+    claims: [],
+    collectionQa: [],
+    pipelineRuns: [
+      {
+        id: "demo-pipeline-run",
+        collectionId: collection.id,
+        projectId: null,
+        name: "Demo research pipeline",
+        status: "complete",
+        createdAt: now,
+        completedAt: now,
+        steps: [
+          {
+            id: "demo-step-upload",
+            runId: "demo-pipeline-run",
+            name: "Upload",
+            status: "complete",
+            detail: "Demo source loaded.",
+            startedAt: now,
+            completedAt: now,
+          },
+          {
+            id: "demo-step-analyze",
+            runId: "demo-pipeline-run",
+            name: "Analyze",
+            status: "complete",
+            detail: "Chunks prepared for AI workflows.",
+            startedAt: now,
+            completedAt: now,
+          },
+        ],
+      },
+    ],
+    metrics: [
+      {
+        id: "demo-metric",
+        action: "demo.workspace",
+        provider: "demo",
+        model: "demo",
+        tokenEstimate: 0,
+        latencyMs: 140,
+        chunkCount: project.chunks.length,
+        createdAt: now,
+      },
+    ],
+  };
+}
+
 export function getDemoStore() {
   if (!globalWithDemoStore.__researchOsDemoStore) {
-    globalWithDemoStore.__researchOsDemoStore = {
-      projects: [createSeedProject()],
-      outputs: [],
-    };
+    globalWithDemoStore.__researchOsDemoStore = createSeedStore();
   }
 
   return globalWithDemoStore.__researchOsDemoStore;
@@ -194,6 +291,283 @@ export function createDemoProjectFromDocument(input: {
 
   getDemoStore().projects.unshift(detail);
   return detail;
+}
+
+export function listDemoCollections(): ResearchCollection[] {
+  return getDemoStore().collections;
+}
+
+export function getDemoCollection(collectionId: string): CollectionDetail {
+  const store = getDemoStore();
+  const collection =
+    store.collections.find((item) => item.id === collectionId) ??
+    store.collections[0];
+
+  return {
+    ...collection,
+    documents: store.collectionDocuments.filter(
+      (item) => item.collectionId === collection.id,
+    ),
+    reports: store.synthesisReports
+      .filter((item) => item.collectionId === collection.id)
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
+    entities: store.entities.filter((item) => item.collectionId === collection.id),
+    insights: store.linkedInsights.filter(
+      (item) => item.collectionId === collection.id,
+    ),
+    claims: store.claims.filter((item) => item.collectionId === collection.id),
+    qa: store.collectionQa
+      .filter((item) => item.collectionId === collection.id)
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
+    pipelineRuns: store.pipelineRuns.filter(
+      (item) => item.collectionId === collection.id,
+    ),
+  };
+}
+
+export function createDemoCollection(name: string, description?: string | null) {
+  const now = new Date().toISOString();
+  const collection: ResearchCollection = {
+    id: randomUUID(),
+    name,
+    description: description ?? null,
+    projectCount: 0,
+    documentCount: 0,
+    createdAt: now,
+    updatedAt: now,
+  };
+
+  getDemoStore().collections.unshift(collection);
+  return collection;
+}
+
+export function attachDemoProjectToCollection(
+  collectionId: string,
+  projectId: string,
+) {
+  const store = getDemoStore();
+  const collection = store.collections.find((item) => item.id === collectionId);
+  const project = getDemoProject(projectId);
+
+  if (!collection || !project) {
+    return null;
+  }
+
+  const existing = store.collectionDocuments.find(
+    (item) => item.collectionId === collectionId && item.projectId === projectId,
+  );
+
+  if (existing) {
+    return existing;
+  }
+
+  const link: CollectionDocument = {
+    id: randomUUID(),
+    collectionId,
+    projectId,
+    documentId: project.documents[0]?.id ?? null,
+    projectTitle: project.title,
+    fileName: project.documents[0]?.fileName ?? null,
+    addedAt: new Date().toISOString(),
+  };
+
+  store.collectionDocuments.unshift(link);
+  const docs = store.collectionDocuments.filter(
+    (item) => item.collectionId === collectionId,
+  );
+  collection.projectCount = docs.length;
+  collection.documentCount = docs.length;
+  collection.updatedAt = new Date().toISOString();
+
+  return link;
+}
+
+export function getDemoCollectionChunks(collectionId: string) {
+  const links = getDemoStore().collectionDocuments.filter(
+    (item) => item.collectionId === collectionId,
+  );
+
+  return links.flatMap((link) => {
+    const project = getDemoProject(link.projectId);
+    return project.chunks.map((chunk) => ({
+      ...chunk,
+      similarity: 0,
+      documentTitle: link.fileName ?? project.documents[0]?.fileName ?? null,
+      projectTitle: project.title,
+    }));
+  });
+}
+
+export function saveDemoSynthesisReport(input: {
+  collectionId: string;
+  kind: SynthesisReportKind;
+  title: string;
+  output: unknown;
+  citations: Citation[];
+  provider: string;
+  model: string;
+  tokenEstimate: number;
+}) {
+  const report: SynthesisReport = {
+    id: randomUUID(),
+    collectionId: input.collectionId,
+    kind: input.kind,
+    title: input.title,
+    output: input.output,
+    citations: input.citations,
+    provider: input.provider,
+    model: input.model,
+    tokenEstimate: input.tokenEstimate,
+    createdAt: new Date().toISOString(),
+  };
+
+  getDemoStore().synthesisReports.unshift(report);
+  return report;
+}
+
+export function saveDemoKnowledge(input: {
+  collectionId: string;
+  entities: Array<Omit<KnowledgeEntity, "id" | "createdAt" | "collectionId">>;
+  insights: Array<Omit<LinkedInsight, "id" | "createdAt" | "collectionId">>;
+  claims: Array<Omit<ResearchClaim, "id" | "createdAt" | "collectionId">>;
+}) {
+  const store = getDemoStore();
+  const now = new Date().toISOString();
+
+  store.entities = store.entities.filter(
+    (item) => item.collectionId !== input.collectionId,
+  );
+  store.linkedInsights = store.linkedInsights.filter(
+    (item) => item.collectionId !== input.collectionId,
+  );
+  store.claims = store.claims.filter(
+    (item) => item.collectionId !== input.collectionId,
+  );
+
+  const entities = input.entities.map((entity) => ({
+    ...entity,
+    id: randomUUID(),
+    collectionId: input.collectionId,
+    createdAt: now,
+  }));
+  const insights = input.insights.map((insight) => ({
+    ...insight,
+    id: randomUUID(),
+    collectionId: input.collectionId,
+    createdAt: now,
+  }));
+  const claims = input.claims.map((claim) => ({
+    ...claim,
+    id: randomUUID(),
+    collectionId: input.collectionId,
+    createdAt: now,
+  }));
+
+  store.entities.unshift(...entities);
+  store.linkedInsights.unshift(...insights);
+  store.claims.unshift(...claims);
+
+  return { entities, insights, claims };
+}
+
+export function addDemoCollectionQa(
+  collectionId: string,
+  question: string,
+  answer: string,
+  citations: Citation[],
+  provider = "demo",
+  model = "demo",
+) {
+  const message: CollectionQaMessage = {
+    id: randomUUID(),
+    collectionId,
+    question,
+    answer,
+    citations,
+    provider,
+    model,
+    pinned: false,
+    createdAt: new Date().toISOString(),
+  };
+  getDemoStore().collectionQa.unshift(message);
+  return message;
+}
+
+export function addDemoUsageMetric(input: Omit<UsageMetric, "id" | "createdAt">) {
+  const metric: UsageMetric = {
+    ...input,
+    id: randomUUID(),
+    createdAt: new Date().toISOString(),
+  };
+  getDemoStore().metrics.unshift(metric);
+  return metric;
+}
+
+export function createDemoPipelineRun(input: {
+  collectionId?: string | null;
+  projectId?: string | null;
+  name: string;
+  steps: string[];
+}) {
+  const now = new Date().toISOString();
+  const run: ResearchPipelineRun = {
+    id: randomUUID(),
+    collectionId: input.collectionId ?? null,
+    projectId: input.projectId ?? null,
+    name: input.name,
+    status: "complete",
+    createdAt: now,
+    completedAt: now,
+    steps: input.steps.map((step) => ({
+      id: randomUUID(),
+      runId: "demo-run",
+      name: step,
+      status: "complete",
+      detail: `${step} completed in demo mode.`,
+      startedAt: now,
+      completedAt: now,
+    })),
+  };
+
+  run.steps = run.steps.map((step) => ({ ...step, runId: run.id }));
+  getDemoStore().pipelineRuns.unshift(run);
+  return run;
+}
+
+export function getDemoUsageAnalytics(): UsageAnalytics {
+  const metrics = getDemoStore().metrics;
+  const totalTokens = metrics.reduce((sum, metric) => sum + metric.tokenEstimate, 0);
+  const totalLatency = metrics.reduce((sum, metric) => sum + metric.latencyMs, 0);
+  const byProvider = new Map<string, UsageMetric[]>();
+
+  for (const metric of metrics) {
+    byProvider.set(metric.provider, [
+      ...(byProvider.get(metric.provider) ?? []),
+      metric,
+    ]);
+  }
+
+  return {
+    totalTokens,
+    totalRuns: metrics.length,
+    averageLatencyMs: metrics.length ? Math.round(totalLatency / metrics.length) : 0,
+    retrievalEfficiency: 0.78,
+    providerBreakdown: Array.from(byProvider.entries()).map(
+      ([provider, providerMetrics]) => ({
+        provider,
+        runs: providerMetrics.length,
+        tokens: providerMetrics.reduce(
+          (sum, metric) => sum + metric.tokenEstimate,
+          0,
+        ),
+        averageLatencyMs: Math.round(
+          providerMetrics.reduce((sum, metric) => sum + metric.latencyMs, 0) /
+            providerMetrics.length,
+        ),
+      }),
+    ),
+    recentMetrics: metrics.slice(0, 12),
+  };
 }
 
 export function getDemoOutput(

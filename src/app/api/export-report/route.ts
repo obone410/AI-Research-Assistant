@@ -3,17 +3,27 @@ import { z } from "zod";
 import { rateLimit } from "@/lib/api/rate-limit";
 import { fail, ok, unknownFail, validationFail } from "@/lib/api/response";
 import {
+  getCollectionDetail,
   getProjectDetail,
   getResearchContext,
   saveExportRecord,
 } from "@/lib/research/repository";
-import { buildJsonReport, buildMarkdownReport } from "@/lib/research/export";
+import {
+  buildCollectionJsonReport,
+  buildCollectionMarkdownReport,
+  buildJsonReport,
+  buildMarkdownReport,
+} from "@/lib/research/export";
 
 export const runtime = "nodejs";
 
 const requestSchema = z.object({
-  projectId: z.string().min(1),
+  projectId: z.string().min(1).optional(),
+  collectionId: z.string().min(1).optional(),
   format: z.enum(["markdown", "json"]).default("markdown"),
+}).refine((value) => Boolean(value.projectId || value.collectionId), {
+  message: "Provide projectId or collectionId.",
+  path: ["projectId"],
 });
 
 export async function POST(request: NextRequest) {
@@ -35,11 +45,28 @@ export async function POST(request: NextRequest) {
       return fail("unauthorized", "Sign in to export reports.", 401);
     }
 
-    const project = await getProjectDetail(ctx, parsed.data.projectId);
+    if (parsed.data.collectionId) {
+      const collection = await getCollectionDetail(ctx, parsed.data.collectionId);
+      if (!collection) {
+        return fail("not_found", "Collection not found.", 404);
+      }
+
+      const payload =
+        parsed.data.format === "json"
+          ? buildCollectionJsonReport(collection)
+          : buildCollectionMarkdownReport(collection);
+
+      return ok({
+        fileName: `${collection.name.replace(/[^\w\-]+/g, "-").toLowerCase()}.${parsed.data.format === "json" ? "json" : "md"}`,
+        format: parsed.data.format,
+        payload,
+      });
+    }
+
+    const project = await getProjectDetail(ctx, parsed.data.projectId as string);
     if (!project) {
       return fail("not_found", "Project not found.", 404);
     }
-
     const payload =
       parsed.data.format === "json"
         ? buildJsonReport(project)

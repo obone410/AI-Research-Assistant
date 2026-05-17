@@ -6,9 +6,9 @@ ResearchOS is a Next.js App Router application that turns uploaded research docu
 
 The application has four runtime layers:
 
-- **Client workspace:** React components for auth, ingestion, project navigation, document viewing, AI outputs, Q&A, notes, highlights, and exports.
-- **API routes:** Next.js server routes for upload, summarization, extraction, keyword generation, document chat, project reads, notes, highlights, pinning, and exports.
-- **Research pipeline:** document parsing, normalization, chunking, hashing, prompt rendering, provider abstraction, embedding generation, retrieval, structured output validation, and export generation.
+- **Client workspace:** React components for auth, ingestion, project navigation, collection dashboards, document viewing, AI outputs, research chat, knowledge exploration, analytics, notes, highlights, and exports.
+- **API routes:** Next.js server routes for upload, summarization, extraction, keyword generation, document chat, collection synthesis, knowledge extraction, analytics, project reads, notes, highlights, pinning, and exports.
+- **Research pipeline:** document parsing, normalization, chunking, hashing, prompt rendering, provider abstraction, embedding generation, retrieval, multi-document synthesis, structured output validation, and export generation.
 - **Supabase backend:** Auth sessions, private Storage bucket, Postgres metadata tables, row-level security, and pgvector retrieval.
 
 ## Data Flow
@@ -19,16 +19,19 @@ The application has four runtime layers:
 4. Metadata, raw text, chunks, and optional embeddings are stored under the authenticated user ID.
 5. AI actions load project chunks, render versioned prompt templates, call the configured provider server-side, validate JSON output with Zod, and cache outputs by document/chunk hash.
 6. Q&A embeds the question, retrieves relevant chunks through pgvector or lexical fallback, and returns cited answers.
-7. Exports assemble Markdown or JSON from the project, AI outputs, pinned Q&A, notes, highlights, and citations.
+7. Collections attach multiple projects, retrieve source chunks across documents, and generate unified reports, source comparisons, executive briefs, trend analysis, and research gap outputs.
+8. Knowledge extraction stores entities, linked insights, and source-backed claims so research memory can be reused across the workspace.
+9. Exports assemble Markdown or JSON from projects or collections, including AI outputs, research chat, entities, claims, notes, highlights, and citations.
 
 ## Key Modules
 
 - `src/app/api/*`: public HTTP interface. All mutating and AI routes require a server-verified user unless the app is intentionally running without Supabase configuration in demo mode.
 - `src/lib/research/repository.ts`: data-access boundary for Supabase and in-memory demo mode.
-- `src/lib/research/processing.ts`: AI pipeline orchestration, cache checks, RAG retrieval, and demo fallback policy.
+- `src/lib/research/processing.ts`: AI pipeline orchestration, cache checks, RAG retrieval, collection synthesis, knowledge extraction, analytics recording, and demo fallback policy.
 - `src/lib/ai/*`: provider abstraction, embeddings, prompt templates, and Zod schemas.
 - `src/lib/documents/*`: extraction, normalization, token estimation, chunking, and prompt compaction.
-- `supabase/migrations/0001_researchos.sql`: schema, indexes, storage bucket, RLS policies, and `match_document_chunks` RPC.
+- `supabase/migrations/0001_researchos.sql`: base schema, indexes, storage bucket, RLS policies, and `match_document_chunks` RPC.
+- `supabase/migrations/0002_research_intelligence_workspace.sql`: collection, synthesis, knowledge, research chat, workflow progress, usage analytics, and saved view tables.
 
 ## Storage Model
 
@@ -42,6 +45,17 @@ Supabase tables:
 - `highlights`
 - `qa_messages`
 - `research_exports`
+- `research_collections`
+- `collection_documents`
+- `synthesis_reports`
+- `knowledge_entities`
+- `linked_insights`
+- `research_claims`
+- `collection_qa_messages`
+- `research_pipeline_runs`
+- `research_pipeline_steps`
+- `ai_usage_metrics`
+- `saved_research_views`
 
 Storage bucket:
 
@@ -78,4 +92,4 @@ Optional AI values:
 
 The app was pushed to GitHub without local credentials. The Vercel deployment built successfully before credentials were added locally. Do not redeploy with local secrets unless they are configured intentionally as Vercel environment variables through the Vercel dashboard or CLI secret flow.
 
-Supabase migrations still need to be applied to the target Supabase project before authenticated production use. Without the migration, the app can authenticate but project operations will fail because tables, policies, storage bucket, and pgvector RPC are missing.
+Supabase migrations still need to be applied to the target Supabase project before authenticated production use. Without the migrations, the app can authenticate but project and collection operations will fail because tables, policies, storage bucket, and pgvector RPC are missing.

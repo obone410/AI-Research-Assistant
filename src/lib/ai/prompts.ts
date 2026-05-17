@@ -117,6 +117,81 @@ Question:
 Retrieved context:
 {{context}}`,
   },
+  synthesizeCollection: {
+    id: "synthesis.collection",
+    version: "v1",
+    description: "Create a multi-source research report from selected chunks.",
+    temperature: 0.22,
+    maxTokens: 2200,
+    template: `You are ResearchOS, an AI-native research workspace.
+Synthesize the collection context into a reusable research artifact. Compare sources,
+identify overlapping ideas, call out source tensions, and preserve citations.
+
+Return only JSON:
+{
+  "kind": "{{kind}}",
+  "title": "",
+  "overview": "",
+  "combinedSummary": "",
+  "sourceComparisons": [{"source":"", "contribution":"", "notableDifference":""}],
+  "overlappingIdeas": [""],
+  "sourceTensions": [{"topic":"", "explanation":"", "citations":[{"chunkId":"", "chunkIndex":0, "quote":""}]}],
+  "recommendations": [""],
+  "citations": [{"chunkId":"", "chunkIndex":0, "sectionTitle":null, "quote":""}],
+  "confidence": "medium"
+}
+
+Collection:
+{{collectionName}}
+
+Report kind:
+{{kind}}
+
+Context:
+{{context}}`,
+  },
+  extractKnowledge: {
+    id: "extraction.knowledge",
+    version: "v1",
+    description: "Extract entities, linked insights, and claims from a collection.",
+    temperature: 0.12,
+    maxTokens: 1900,
+    template: `You are ResearchOS. Extract structured research knowledge from the context.
+Focus on people, organizations, technologies, concepts, topics, important claims, and source-backed insights.
+
+Return only JSON:
+{
+  "entities": [{"name":"", "type":"", "summary":"", "confidence":"medium", "mentions":1}],
+  "linkedInsights": [{"title":"", "body":"", "category":"", "confidence":"medium", "citations":[{"chunkId":"", "chunkIndex":0, "quote":""}]}],
+  "claims": [{"claim":"", "evidence":"", "stance":"neutral", "confidence":"medium", "citations":[{"chunkId":"", "chunkIndex":0, "quote":""}]}]
+}
+
+Context:
+{{context}}`,
+  },
+  answerCollectionQuestion: {
+    id: "qa.collection",
+    version: "v1",
+    description: "Answer a research question across multiple documents.",
+    temperature: 0.2,
+    maxTokens: 1500,
+    template: `You are ResearchOS. Answer the question using only the retrieved multi-document context.
+Connect evidence across sources when possible. If the context is insufficient, say what cannot be determined.
+
+Return only JSON:
+{
+  "answer": "",
+  "citations": [{"chunkId":"", "chunkIndex":0, "sectionTitle":null, "quote":""}],
+  "confidence": "medium",
+  "followUpQuestions": [""]
+}
+
+Question:
+{{question}}
+
+Retrieved multi-document context:
+{{context}}`,
+  },
 } satisfies Record<string, PromptTemplate>;
 
 export function renderPrompt(

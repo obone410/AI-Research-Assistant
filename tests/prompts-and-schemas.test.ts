@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { summarySchema } from "@/lib/ai/schemas";
+import {
+  knowledgeExtractionSchema,
+  summarySchema,
+  synthesisReportSchema,
+} from "@/lib/ai/schemas";
 import { promptTemplates, renderPrompt } from "@/lib/ai/prompts";
 
 describe("prompt templates and output schemas", () => {
@@ -32,5 +36,86 @@ describe("prompt templates and output schemas", () => {
     });
 
     expect(parsed.depth).toBe("detailed");
+  });
+
+  it("validates multi-document synthesis output", () => {
+    const parsed = synthesisReportSchema.parse({
+      kind: "combined_summary",
+      title: "Unified report",
+      overview: "A collection-level overview.",
+      combinedSummary: "The shared research narrative.",
+      sourceComparisons: [
+        {
+          source: "Source A",
+          contribution: "Adds the market angle.",
+          notableDifference: "Uses a different framing.",
+        },
+      ],
+      overlappingIdeas: ["Retrieval improves grounded answers."],
+      sourceTensions: [
+        {
+          topic: "Cost",
+          explanation: "Sources emphasize different cost controls.",
+          citations: [
+            {
+              chunkId: "chunk-1",
+              chunkIndex: 0,
+              quote: "Token strategy evidence.",
+            },
+          ],
+        },
+      ],
+      recommendations: ["Export a cited brief."],
+      citations: [
+        {
+          chunkId: "chunk-1",
+          chunkIndex: 0,
+          quote: "Token strategy evidence.",
+        },
+      ],
+      confidence: "medium",
+    });
+
+    expect(parsed.kind).toBe("combined_summary");
+  });
+
+  it("validates knowledge extraction output", () => {
+    const parsed = knowledgeExtractionSchema.parse({
+      entities: [
+        {
+          name: "ResearchOS",
+          type: "Product",
+          summary: "Workspace for AI research workflows.",
+          confidence: "high",
+          mentions: 3,
+        },
+      ],
+      linkedInsights: [
+        {
+          title: "Reusable outputs matter",
+          body: "Research artifacts should remain available after generation.",
+          category: "workflow",
+          confidence: "high",
+          citations: [
+            {
+              chunkId: "chunk-1",
+              chunkIndex: 0,
+              quote: "Reusable outputs.",
+            },
+          ],
+        },
+      ],
+      claims: [
+        {
+          claim: "Citations improve trust.",
+          evidence: "The source links answers back to chunks.",
+          stance: "supports",
+          confidence: "high",
+          citations: [],
+        },
+      ],
+    });
+
+    expect(parsed.entities[0].name).toBe("ResearchOS");
   });
 });

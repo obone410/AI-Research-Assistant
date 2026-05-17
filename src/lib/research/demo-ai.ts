@@ -1,7 +1,9 @@
 import type {
   AnswerOutput,
+  KnowledgeExtractionOutput,
   InsightsOutput,
   KeywordsOutput,
+  SynthesisReportOutput,
   SummaryOutput,
 } from "@/lib/ai/schemas";
 import type { DocumentChunk, RetrievalHit, SummaryDepth } from "@/lib/research/types";
@@ -147,6 +149,125 @@ export function demoAnswer(question: string, hits: RetrievalHit[]): AnswerOutput
       "Which claims need stronger evidence?",
       "What gaps should be tracked as research notes?",
       "Which sections should be exported into the final report?",
+    ],
+  };
+}
+
+export function demoSynthesis(
+  kind: SynthesisReportOutput["kind"],
+  collectionName: string,
+  hits: RetrievalHit[],
+): SynthesisReportOutput {
+  const citations = hits.slice(0, 4).map(citationFromChunk);
+
+  return {
+    kind,
+    title:
+      kind === "executive_brief"
+        ? `${collectionName} executive brief`
+        : `${collectionName} unified research report`,
+    overview:
+      "The collection points to a research operating system pattern: ingest documents, structure the source material, retrieve the most relevant chunks, and reuse outputs across notes, reports, and chat.",
+    combinedSummary:
+      "Across the available sources, the strongest shared idea is that document intelligence becomes more useful when summaries, claims, entities, and citations are saved as durable research assets. The workflow also emphasizes cost-aware chunking and selective context so long documents can be analyzed without sending redundant text to the model.",
+    sourceComparisons: [
+      {
+        source: hits[0]?.projectTitle ?? "Primary source",
+        contribution:
+          "Frames the research workspace as a repeatable pipeline rather than a one-off summarizer.",
+        notableDifference:
+          "Places more emphasis on product workflow and reusable outputs.",
+      },
+      {
+        source: hits[1]?.projectTitle ?? "Supporting source",
+        contribution:
+          "Adds operational details around embeddings, citations, and exportable findings.",
+        notableDifference:
+          "Focuses more on implementation depth and retrieval behavior.",
+      },
+    ],
+    overlappingIdeas: [
+      "Chunking and retrieval are central to grounded research answers.",
+      "Structured outputs make findings reusable across reports and notes.",
+      "Citations improve confidence and make AI outputs easier to verify.",
+    ],
+    sourceTensions: [
+      {
+        topic: "Depth versus speed",
+        explanation:
+          "Some workflows favor rapid executive summaries while others require slower, source-by-source comparison.",
+        citations: citations.slice(0, 2),
+      },
+    ],
+    recommendations: [
+      "Use collection reports for recurring research briefs.",
+      "Extract entities and claims immediately after ingestion so later chats can reuse them.",
+      "Pin high-value answers and include them in exports.",
+    ],
+    citations,
+    confidence: citations.length ? "medium" : "low",
+  };
+}
+
+export function demoKnowledgeExtraction(
+  hits: RetrievalHit[],
+): KnowledgeExtractionOutput {
+  const citations = hits.slice(0, 3).map(citationFromChunk);
+
+  return {
+    entities: [
+      {
+        name: "ResearchOS",
+        type: "Product",
+        summary:
+          "An AI-native workspace for document ingestion, retrieval, synthesis, and reusable research outputs.",
+        confidence: "high",
+        mentions: 4,
+      },
+      {
+        name: "Supabase",
+        type: "Technology",
+        summary:
+          "Provides authentication, file storage, Postgres metadata, and pgvector retrieval for the workspace.",
+        confidence: "high",
+        mentions: 2,
+      },
+      {
+        name: "RAG-lite retrieval",
+        type: "Concept",
+        summary:
+          "A retrieval workflow that selects relevant chunks before generating cited answers.",
+        confidence: "high",
+        mentions: 3,
+      },
+    ],
+    linkedInsights: [
+      {
+        title: "Research outputs should become workspace memory",
+        body:
+          "Summaries, claims, entities, and pinned answers are more valuable when they remain searchable after the first AI run.",
+        category: "workflow",
+        confidence: "high",
+        citations,
+      },
+      {
+        title: "Selective context keeps analysis responsive",
+        body:
+          "The platform should inject only the most relevant chunks when answering or synthesizing across documents.",
+        category: "retrieval",
+        confidence: "medium",
+        citations: citations.slice(0, 2),
+      },
+    ],
+    claims: [
+      {
+        claim:
+          "A research platform needs citations and reusable structured outputs to feel trustworthy.",
+        evidence: citations[0]?.quote ?? "Demo source emphasizes citation-backed outputs.",
+        stance: "supports",
+        confidence: citations.length ? "high" : "medium",
+        citations: citations.slice(0, 1),
+      },
     ],
   };
 }

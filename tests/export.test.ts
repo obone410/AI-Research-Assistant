@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { buildJsonReport, buildMarkdownReport } from "@/lib/research/export";
-import type { ProjectDetail } from "@/lib/research/types";
+import {
+  buildCollectionJsonReport,
+  buildCollectionMarkdownReport,
+  buildJsonReport,
+  buildMarkdownReport,
+} from "@/lib/research/export";
+import type { CollectionDetail, ProjectDetail } from "@/lib/research/types";
 
 const project: ProjectDetail = {
   id: "project-1",
@@ -61,6 +66,88 @@ const project: ProjectDetail = {
   ],
 };
 
+const collection: CollectionDetail = {
+  id: "collection-1",
+  name: "AI Research Collection",
+  description: null,
+  projectCount: 1,
+  documentCount: 1,
+  createdAt: "2026-05-16T00:00:00.000Z",
+  updatedAt: "2026-05-16T00:00:00.000Z",
+  documents: [
+    {
+      id: "collection-document-1",
+      collectionId: "collection-1",
+      projectId: "project-1",
+      documentId: "doc-1",
+      projectTitle: "Portfolio Research",
+      fileName: "brief.txt",
+      addedAt: "2026-05-16T00:00:00.000Z",
+    },
+  ],
+  reports: [
+    {
+      id: "report-1",
+      collectionId: "collection-1",
+      kind: "combined_summary",
+      title: "Unified report",
+      output: { overview: "Collection overview." },
+      citations: [
+        {
+          chunkId: "chunk-1",
+          chunkIndex: 0,
+          quote: "Collection evidence.",
+        },
+      ],
+      provider: "demo",
+      model: "demo",
+      tokenEstimate: 0,
+      createdAt: "2026-05-16T00:00:00.000Z",
+    },
+  ],
+  entities: [
+    {
+      id: "entity-1",
+      collectionId: "collection-1",
+      projectId: null,
+      name: "ResearchOS",
+      type: "Product",
+      summary: "Research workspace.",
+      confidence: "high",
+      mentions: 2,
+      createdAt: "2026-05-16T00:00:00.000Z",
+    },
+  ],
+  insights: [
+    {
+      id: "insight-1",
+      collectionId: "collection-1",
+      projectId: null,
+      title: "Reusable memory",
+      body: "Insights are reusable across reports.",
+      category: "workflow",
+      confidence: "high",
+      citations: [],
+      createdAt: "2026-05-16T00:00:00.000Z",
+    },
+  ],
+  claims: [
+    {
+      id: "claim-1",
+      collectionId: "collection-1",
+      projectId: null,
+      claim: "Collection synthesis improves research reuse.",
+      evidence: "Unified reports combine source outputs.",
+      stance: "supports",
+      confidence: "high",
+      citations: [],
+      createdAt: "2026-05-16T00:00:00.000Z",
+    },
+  ],
+  qa: [],
+  pipelineRuns: [],
+};
+
 describe("report export", () => {
   it("builds markdown reports with pinned Q&A and citations", () => {
     const markdown = buildMarkdownReport(project);
@@ -75,5 +162,20 @@ describe("report export", () => {
 
     expect(json.project.title).toBe("Portfolio Research");
     expect(json.citations[0].quote).toBe("Architecture evidence.");
+  });
+
+  it("builds collection markdown exports", () => {
+    const markdown = buildCollectionMarkdownReport(collection);
+
+    expect(markdown).toContain("# AI Research Collection");
+    expect(markdown).toContain("Unified report");
+    expect(markdown).toContain("ResearchOS");
+  });
+
+  it("builds collection JSON exports", () => {
+    const json = JSON.parse(buildCollectionJsonReport(collection));
+
+    expect(json.collection.name).toBe("AI Research Collection");
+    expect(json.citations[0].quote).toBe("Collection evidence.");
   });
 });

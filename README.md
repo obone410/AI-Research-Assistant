@@ -1,6 +1,6 @@
 # ResearchOS
 
-ResearchOS is a portfolio-grade AI research intelligence workspace built with Next.js, Supabase, and server-side AI provider integrations. It ingests documents, chunks and stores source text, retrieves relevant context, generates structured research outputs, supports cited document Q&A, and exports reusable reports.
+ResearchOS is a portfolio-grade AI research intelligence workspace built with Next.js, Supabase, and server-side AI provider integrations. It ingests documents, chunks and stores source text, retrieves relevant context, generates structured research outputs, supports cited Q&A, synthesizes across collections, and exports reusable research artifacts.
 
 ## Features
 
@@ -10,7 +10,10 @@ ResearchOS is a portfolio-grade AI research intelligence workspace built with Ne
 - Reusable prompt templates for summaries, insights, keywords, and Q&A.
 - OpenAI primary provider with optional Claude abstraction.
 - Demo AI fallback when provider keys are not configured.
-- Research workspace UI with document viewer, notes, highlights, pinned answers, and Markdown/JSON exports.
+- Multi-document collections with unified reports, source comparisons, executive briefs, trend analysis, and research gap workflows.
+- Knowledge extraction for entities, linked insights, and source-backed claims.
+- Usage analytics for token estimates, provider mix, processing time, and retrieval efficiency.
+- Research workspace UI with document viewer, notes, highlights, pinned answers, collection chat, command palette, and Markdown/JSON exports.
 
 ## Local Setup
 
@@ -43,7 +46,7 @@ Never commit real API keys. If a key has been pasted into chat or logs, rotate i
 
 ## Supabase
 
-Apply the migration in `supabase/migrations/0001_researchos.sql`. It creates:
+Apply the migrations in `supabase/migrations` in order. `0001_researchos.sql` creates:
 
 - `research_projects`
 - `documents`
@@ -55,6 +58,20 @@ Apply the migration in `supabase/migrations/0001_researchos.sql`. It creates:
 - `research_exports`
 - `match_document_chunks(...)` RPC for pgvector search
 - private `research-documents` storage bucket policies
+
+`0002_research_intelligence_workspace.sql` adds:
+
+- `research_collections`
+- `collection_documents`
+- `synthesis_reports`
+- `knowledge_entities`
+- `linked_insights`
+- `research_claims`
+- `collection_qa_messages`
+- `research_pipeline_runs`
+- `research_pipeline_steps`
+- `ai_usage_metrics`
+- `saved_research_views`
 
 ## API Routes
 
@@ -69,6 +86,14 @@ Apply the migration in `supabase/migrations/0001_researchos.sql`. It creates:
 - `POST /api/projects/:id/notes`
 - `POST /api/projects/:id/highlights`
 - `POST /api/projects/:id/pins`
+- `GET /api/collections`
+- `POST /api/collections`
+- `GET /api/collections/:id`
+- `POST /api/collections/:id/documents`
+- `POST /api/collections/:id/synthesize`
+- `POST /api/collections/:id/knowledge`
+- `POST /api/collections/:id/chat`
+- `GET /api/analytics`
 
 All AI calls happen server-side.
 
