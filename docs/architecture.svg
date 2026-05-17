@@ -1,0 +1,78 @@
+<svg width="1280" height="720" viewBox="0 0 1280 720" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">ResearchOS Architecture</title>
+  <desc id="desc">Architecture diagram showing the ResearchOS browser workspace, Next.js API layer, AI pipeline, Supabase storage, pgvector retrieval, and research outputs.</desc>
+  <rect width="1280" height="720" fill="#F6F7F4"/>
+  <text x="64" y="72" fill="#0F172A" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="38" font-weight="700">ResearchOS Architecture</text>
+  <text x="64" y="108" fill="#475569" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="18">AI-native research workspace for ingestion, retrieval, synthesis, and structured knowledge extraction.</text>
+
+  <defs>
+    <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto" markerUnits="strokeWidth">
+      <path d="M2 2L10 6L2 10V2Z" fill="#64748B"/>
+    </marker>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="130%">
+      <feDropShadow dx="0" dy="8" stdDeviation="10" flood-color="#0F172A" flood-opacity="0.10"/>
+    </filter>
+  </defs>
+
+  <g filter="url(#shadow)">
+    <rect x="64" y="160" width="220" height="380" rx="16" fill="#FFFFFF" stroke="#CBD5E1"/>
+    <text x="92" y="204" fill="#0F172A" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="22" font-weight="700">Workspace UI</text>
+    <text x="92" y="236" fill="#64748B" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="15">Next.js + React</text>
+    <rect x="92" y="270" width="164" height="44" rx="10" fill="#ECFDF5" stroke="#A7F3D0"/>
+    <text x="112" y="298" fill="#065F46" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="15" font-weight="600">Upload</text>
+    <rect x="92" y="330" width="164" height="44" rx="10" fill="#EFF6FF" stroke="#BFDBFE"/>
+    <text x="112" y="358" fill="#1E40AF" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="15" font-weight="600">Research Chat</text>
+    <rect x="92" y="390" width="164" height="44" rx="10" fill="#FFFBEB" stroke="#FDE68A"/>
+    <text x="112" y="418" fill="#92400E" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="15" font-weight="600">Collections</text>
+    <rect x="92" y="450" width="164" height="44" rx="10" fill="#F8FAFC" stroke="#CBD5E1"/>
+    <text x="112" y="478" fill="#334155" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="15" font-weight="600">Knowledge Graph</text>
+  </g>
+
+  <g filter="url(#shadow)">
+    <rect x="356" y="160" width="250" height="380" rx="16" fill="#FFFFFF" stroke="#CBD5E1"/>
+    <text x="386" y="204" fill="#0F172A" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="22" font-weight="700">Server API</text>
+    <text x="386" y="236" fill="#64748B" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="15">App Router routes</text>
+    <rect x="386" y="270" width="190" height="44" rx="10" fill="#F8FAFC" stroke="#CBD5E1"/>
+    <text x="406" y="298" fill="#334155" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="15" font-weight="600">Auth + RLS checks</text>
+    <rect x="386" y="330" width="190" height="44" rx="10" fill="#F8FAFC" stroke="#CBD5E1"/>
+    <text x="406" y="358" fill="#334155" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="15" font-weight="600">Zod validation</text>
+    <rect x="386" y="390" width="190" height="44" rx="10" fill="#F8FAFC" stroke="#CBD5E1"/>
+    <text x="406" y="418" fill="#334155" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="15" font-weight="600">Rate limits</text>
+    <rect x="386" y="450" width="190" height="44" rx="10" fill="#F8FAFC" stroke="#CBD5E1"/>
+    <text x="406" y="478" fill="#334155" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="15" font-weight="600">Exports</text>
+  </g>
+
+  <g filter="url(#shadow)">
+    <rect x="678" y="160" width="250" height="380" rx="16" fill="#FFFFFF" stroke="#CBD5E1"/>
+    <text x="708" y="204" fill="#0F172A" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="22" font-weight="700">AI Pipeline</text>
+    <text x="708" y="236" fill="#64748B" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="15">Token-aware processing</text>
+    <rect x="708" y="270" width="190" height="44" rx="10" fill="#EEF2FF" stroke="#C7D2FE"/>
+    <text x="728" y="298" fill="#3730A3" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="15" font-weight="600">Extract + chunk</text>
+    <rect x="708" y="330" width="190" height="44" rx="10" fill="#EEF2FF" stroke="#C7D2FE"/>
+    <text x="728" y="358" fill="#3730A3" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="15" font-weight="600">Embed + retrieve</text>
+    <rect x="708" y="390" width="190" height="44" rx="10" fill="#EEF2FF" stroke="#C7D2FE"/>
+    <text x="728" y="418" fill="#3730A3" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="15" font-weight="600">Prompt templates</text>
+    <rect x="708" y="450" width="190" height="44" rx="10" fill="#EEF2FF" stroke="#C7D2FE"/>
+    <text x="728" y="478" fill="#3730A3" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="15" font-weight="600">OpenAI / Claude</text>
+  </g>
+
+  <g filter="url(#shadow)">
+    <rect x="1000" y="160" width="216" height="380" rx="16" fill="#FFFFFF" stroke="#CBD5E1"/>
+    <text x="1030" y="204" fill="#0F172A" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="22" font-weight="700">Research Memory</text>
+    <text x="1030" y="236" fill="#64748B" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="15">Supabase + pgvector</text>
+    <rect x="1030" y="270" width="156" height="44" rx="10" fill="#F0FDFA" stroke="#99F6E4"/>
+    <text x="1050" y="298" fill="#0F766E" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="15" font-weight="600">Documents</text>
+    <rect x="1030" y="330" width="156" height="44" rx="10" fill="#F0FDFA" stroke="#99F6E4"/>
+    <text x="1050" y="358" fill="#0F766E" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="15" font-weight="600">Chunks</text>
+    <rect x="1030" y="390" width="156" height="44" rx="10" fill="#F0FDFA" stroke="#99F6E4"/>
+    <text x="1050" y="418" fill="#0F766E" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="15" font-weight="600">Entities</text>
+    <rect x="1030" y="450" width="156" height="44" rx="10" fill="#F0FDFA" stroke="#99F6E4"/>
+    <text x="1050" y="478" fill="#0F766E" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="15" font-weight="600">Reports</text>
+  </g>
+
+  <path d="M284 350H348" stroke="#64748B" stroke-width="3" marker-end="url(#arrow)"/>
+  <path d="M606 350H670" stroke="#64748B" stroke-width="3" marker-end="url(#arrow)"/>
+  <path d="M928 350H992" stroke="#64748B" stroke-width="3" marker-end="url(#arrow)"/>
+  <path d="M1000 522C836 642 516 642 356 522" stroke="#94A3B8" stroke-width="2.5" stroke-dasharray="8 8" marker-end="url(#arrow)"/>
+  <text x="548" y="636" fill="#475569" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="16" font-weight="600">Outputs return as cited summaries, reports, chat answers, graph nodes, and exports</text>
+</svg>

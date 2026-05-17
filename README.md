@@ -1,68 +1,61 @@
 # ResearchOS
 
-ResearchOS is an AI research intelligence workspace built with Next.js, Supabase, pgvector, and server-side OpenAI / Claude provider integrations. It turns uploaded PDFs, TXT files, and DOCX documents into cited summaries, cross-document reports, structured knowledge, research notes, and exportable research artifacts.
+**ResearchOS is an AI Research Intelligence Workspace for turning document collections into cited summaries, cross-source synthesis, structured knowledge, and reusable research outputs.**
 
-## Live Demo
-
-Demo URL: https://ai-research-assistant-liart.vercel.app
-
-Recruiter login:
+[Live demo](https://ai-research-assistant-liart.vercel.app) · Next.js · Supabase · pgvector · OpenAI / Claude · TypeScript
 
 ```text
-Username: recruiter@researchos.dev
+Recruiter login
+Email: recruiter@researchos.dev
 Password: ResearchOS-Demo-2026!
 ```
 
-This is a shared demo account for portfolio review. Do not upload confidential documents. You can also create a separate account from the sign-up screen.
+> This is a shared portfolio demo account. Please use non-confidential test documents, or create a separate account from the sign-up screen.
 
-## What It Does
+![ResearchOS dashboard](docs/screenshots/dashboard.png)
 
-- Upload PDFs, TXT, and DOCX files.
-- Extract and chunk document text with token-aware limits.
-- Store documents, chunks, notes, reports, and research memory in Supabase.
-- Retrieve relevant chunks with pgvector when embeddings are available, with lexical fallback when provider quota is unavailable.
-- Generate summaries, insights, keywords, cited Q&A, and Markdown / JSON exports.
-- Group documents into research collections for multi-document comparison.
-- Generate unified reports, source comparisons, executive briefs, research gaps, trends, opportunities, and recommendations.
-- Extract entities, claims, linked insights, and relationships into an interactive knowledge graph.
-- Show research pipeline status, usage analytics, provider mix, retrieval efficiency, and saved research sessions.
-- Keep all AI calls server-side with Zod-validated output contracts.
+## Why This Exists
+
+ResearchOS helps researchers, analysts, and AI teams organize large document collections, extract structured knowledge, synthesize findings across sources, and generate reusable research intelligence.
+
+Most AI document tools stop at single-file summaries. ResearchOS is built around the harder workflow: upload multiple sources, retrieve the right evidence, compare what sources agree or disagree on, preserve citations, and turn the result into a usable research workspace.
+
+## Product Preview
+
+| Collection Workspace | Synthesis Report |
+| --- | --- |
+| ![Research collection workspace](docs/screenshots/collection-workspace.png) | ![Unified synthesis report](docs/screenshots/synthesis-report.png) |
+
+| Knowledge Graph | Research Chat |
+| --- | --- |
+| ![Interactive knowledge graph](docs/screenshots/knowledge-graph.png) | ![Cited research chat](docs/screenshots/research-chat.png) |
+
+## Core Capabilities
+
+- **Document ingestion:** PDF, TXT, and DOCX upload with text extraction, chunking, hashing, and storage.
+- **Cited research outputs:** summaries, insights, keywords, document Q&A, collection chat, and exportable Markdown / JSON reports.
+- **Multi-document synthesis:** unified summaries, source comparisons, contradictions, research gaps, trends, opportunities, and recommendations.
+- **Knowledge extraction:** entities, claims, linked insights, relationships, and an interactive graph explorer.
+- **Research workflow visibility:** pipeline stages, run history, analytics cards, provider usage, token estimates, and retrieval metrics.
+- **Production-minded fallback behavior:** pgvector retrieval when embeddings are available, lexical fallback when provider quota is unavailable, and graceful provider-error handling.
+
+## Technical Highlights
+
+- Multi-document retrieval architecture for project-level and collection-level Q&A.
+- Supabase Postgres schema with pgvector chunk search and row-level security.
+- Token-aware chunking pipeline with content hashing and cache-aware processing.
+- Reusable prompt template layer with strict Zod output contracts.
+- OpenAI / Anthropic provider abstraction with server-only API calls.
+- Structured knowledge extraction for entities, claims, insights, and graph relationships.
+- Persistent research memory through notes, pinned answers, saved sessions, reports, and exports.
+- Recruiter-ready SaaS UX with auth, upload states, command palette, responsive panels, and analytics.
 
 ## Architecture
 
-```mermaid
-flowchart LR
-    User["Researcher"] --> UI["Next.js Research Workspace"]
-    UI --> Auth["Supabase Auth"]
-    UI --> Upload["Document Upload"]
-    UI --> Chat["Research Chat"]
-    UI --> Export["Markdown / JSON Export"]
+![ResearchOS architecture](docs/architecture.svg)
 
-    Upload --> API["Next.js API Routes"]
-    Chat --> API
-    Export --> API
-
-    API --> Validate["Zod Validation + Rate Limits"]
-    Validate --> Parse["PDF / TXT / DOCX Extraction"]
-    Parse --> Chunk["Chunking + Hash Cache"]
-    Chunk --> Storage["Supabase Storage"]
-    Chunk --> Postgres["Supabase Postgres"]
-    Postgres --> Vector["pgvector Retrieval"]
-
-    API --> Prompts["Prompt Templates"]
-    Prompts --> Provider["OpenAI / Claude Layer"]
-    Provider --> Outputs["Validated AI Outputs"]
-    Vector --> Outputs
-
-    Outputs --> Summary["Summaries / Keywords / Insights"]
-    Outputs --> QA["Cited Q&A"]
-    Outputs --> Synthesis["Multi-Document Synthesis"]
-    Outputs --> Knowledge["Entities / Claims / Relationships"]
-    Knowledge --> Graph["Interactive Knowledge Graph"]
-    Outputs --> Analytics["Usage Analytics"]
-```
-
-## Database Schema
+<details>
+<summary>Database ER diagram</summary>
 
 ```mermaid
 erDiagram
@@ -85,17 +78,18 @@ erDiagram
     collection_documents }o--|| documents : doc
 ```
 
+</details>
+
 ## Stack
 
-- Next.js App Router
-- React 19
-- TypeScript
-- Tailwind CSS
-- Supabase Auth, Storage, Postgres, and pgvector
-- OpenAI embeddings / chat support
-- Anthropic Claude chat support
-- Zod validation
-- Vitest
+| Layer | Technology |
+| --- | --- |
+| App | Next.js App Router, React 19, TypeScript |
+| UI | Tailwind CSS, lucide-react |
+| Backend | Next.js API routes, Zod validation |
+| Data | Supabase Auth, Storage, Postgres, pgvector |
+| AI | OpenAI embeddings / chat, Anthropic Claude chat |
+| Quality | Vitest, ESLint, npm audit |
 
 ## Local Setup
 
@@ -124,21 +118,7 @@ AI_PROVIDER=anthropic
 DEMO_MODE=false
 ```
 
-Never commit real API keys. Production secrets should be configured in Vercel environment variables.
-
-## Supabase Setup
-
-Apply the migrations in `supabase/migrations` in order:
-
-- `0001_researchos.sql`
-- `0002_research_intelligence_workspace.sql`
-- `0003_entity_relationships_and_cache.sql`
-- `0004_production_hardening.sql`
-- `0005_pdf_schema_alignment.sql`
-- `0006_research_workspace_upgrade.sql`
-- `0007_interactive_research_intelligence.sql`
-
-These migrations create the document workspace, pgvector retrieval, private storage bucket, collections, knowledge graph tables, research sessions, analytics, rate limits, and compatibility views used by the app.
+Apply Supabase migrations in `supabase/migrations` from `0001` through `0007`.
 
 ## Verification
 
@@ -146,6 +126,7 @@ These migrations create the document workspace, pgvector retrieval, private stor
 npm run lint
 npm test
 npm run build
+npm audit --omit=dev
 ```
 
-Current live verification covers authenticated login, document upload, collection creation, multi-document synthesis, knowledge extraction, the knowledge graph, analytics, and export-ready workspace state.
+Latest live smoke test covers recruiter login, document upload, collection creation, multi-document synthesis, knowledge extraction, the knowledge graph, analytics, and export-ready workspace state.
