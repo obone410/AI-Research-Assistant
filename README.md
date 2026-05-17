@@ -38,6 +38,8 @@ Most AI document tools summarize one file at a time. ResearchOS is built for the
 
 ## Product Proof
 
+Captured from the deployed Vercel app with the public recruiter login.
+
 | Dashboard | Collection Workspace |
 | --- | --- |
 | ![ResearchOS dashboard](docs/screenshots/dashboard.png) | ![Research collection workspace](docs/screenshots/collection-workspace.png) |
@@ -46,9 +48,9 @@ Most AI document tools summarize one file at a time. ResearchOS is built for the
 | --- | --- |
 | ![Unified synthesis report](docs/screenshots/synthesis-report.png) | ![Interactive knowledge graph](docs/screenshots/knowledge-graph.png) |
 
-| Research Chat |
-| --- |
-| ![Cited research chat](docs/screenshots/research-chat.png) |
+| Research Chat | Mobile Workspace |
+| --- | --- |
+| ![Cited research chat](docs/screenshots/research-chat.png) | ![Responsive ResearchOS workspace](docs/screenshots/mobile-workspace.png) |
 
 ---
 
