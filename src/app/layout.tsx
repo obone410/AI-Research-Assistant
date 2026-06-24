@@ -13,9 +13,26 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "ResearchOS - AI Research Assistant",
+  metadataBase: new URL("https://ai-research-assistant-liart.vercel.app"),
+  applicationName: "ResearchOS",
+  title: {
+    default: "ResearchOS - AI Research Intelligence Workspace",
+    template: "%s | ResearchOS",
+  },
   description:
-    "A research intelligence workspace for document ingestion, RAG, structured AI extraction, and cited exports.",
+    "An AI-native research workspace for document ingestion, multi-document synthesis, cited Q&A, knowledge extraction, and research exports.",
+  openGraph: {
+    title: "ResearchOS - AI Research Intelligence Workspace",
+    description:
+      "Upload documents, synthesize findings across sources, ask cited research questions, and explore extracted knowledge.",
+    url: "https://ai-research-assistant-liart.vercel.app",
+    siteName: "ResearchOS",
+    type: "website",
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
 };
 
 export default function RootLayout({

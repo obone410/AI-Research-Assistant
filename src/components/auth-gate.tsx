@@ -2,7 +2,15 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
-import { LockKeyhole, LogIn, Mail, UserPlus } from "lucide-react";
+import {
+  FileSearch,
+  GitCompareArrows,
+  LockKeyhole,
+  LogIn,
+  Mail,
+  Network,
+  UserPlus,
+} from "lucide-react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 type AuthGateProps = {
@@ -88,31 +96,34 @@ export function AuthGate({ supabaseConfigured, children }: AuthGateProps) {
   }
 
   return (
-    <main className="min-h-screen bg-[#f6f7f4] px-4 py-10 text-slate-950">
+    <main className="min-h-screen bg-[#f6f7f4] px-4 py-8 text-slate-950 sm:py-10">
       <section className="mx-auto grid min-h-[calc(100vh-5rem)] max-w-6xl items-center gap-10 lg:grid-cols-[1.1fr_0.9fr]">
         <div className="space-y-8">
-          <div className="inline-flex items-center gap-2 rounded-full border border-slate-300 bg-white px-3 py-1 text-sm text-slate-600">
+          <div className="inline-flex items-center gap-2 border border-emerald-300 bg-emerald-50 px-3 py-1 text-sm font-medium text-emerald-900">
             <LockKeyhole className="h-4 w-4 text-emerald-700" />
-            Supabase Auth
+            Supabase Auth + server-side AI
           </div>
           <div className="max-w-2xl space-y-5">
-            <h1 className="text-5xl font-semibold tracking-normal text-slate-950">
+            <h1 className="text-4xl font-semibold tracking-normal text-slate-950 sm:text-5xl">
               ResearchOS
             </h1>
             <p className="text-lg leading-8 text-slate-600">
-              Sign in to open the research workspace, upload documents, run
-              structured AI extraction, and export cited reports.
+              A research intelligence workspace for multi-document synthesis,
+              cited Q&A, knowledge extraction, and export-ready analysis.
             </p>
           </div>
           <div className="grid gap-3 text-sm text-slate-700 sm:grid-cols-3">
             <div className="border border-slate-300 bg-white p-4">
-              Document intelligence
+              <FileSearch className="mb-3 h-4 w-4 text-emerald-700" />
+              Document ingestion
             </div>
             <div className="border border-slate-300 bg-white p-4">
-              pgvector retrieval
+              <GitCompareArrows className="mb-3 h-4 w-4 text-sky-700" />
+              Cross-source synthesis
             </div>
             <div className="border border-slate-300 bg-white p-4">
-              Structured AI outputs
+              <Network className="mb-3 h-4 w-4 text-violet-700" />
+              Knowledge graph
             </div>
           </div>
         </div>
@@ -126,7 +137,8 @@ export function AuthGate({ supabaseConfigured, children }: AuthGateProps) {
               {mode === "signin" ? "Sign in" : "Create account"}
             </h2>
             <p className="mt-1 text-sm text-slate-500">
-              Use the same credentials configured in Supabase Auth.
+              Use the recruiter credentials from the README, or create a
+              separate workspace account.
             </p>
           </div>
           <label className="block text-sm font-medium text-slate-700">

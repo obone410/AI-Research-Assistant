@@ -169,6 +169,7 @@ Apply Supabase migrations in `supabase/migrations` from `0001` through `0007`.
 npm run lint
 npm test
 npm run build
+npm audit
 npm audit --omit=dev
 ```
 
