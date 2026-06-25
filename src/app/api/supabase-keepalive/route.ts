@@ -6,6 +6,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const KEEPALIVE_ID = "researchos-supabase-keepalive";
+const FALLBACK_KEEPALIVE_KEY = "system:researchos-supabase-keepalive";
 
 function isAuthorizedCronRequest(request: NextRequest) {
   const cronSecret = process.env.CRON_SECRET;
@@ -74,12 +75,38 @@ export async function GET(request: NextRequest) {
       throw new Error(error.message);
     }
 
-    const fallback = await supabase
+    const fallbackResetAt = new Date(
+      Date.now() + 30 * 24 * 60 * 60 * 1000,
+    ).toISOString();
+    const fallbackWrite = await supabase.from("api_rate_limits").upsert(
+      {
+        key: FALLBACK_KEEPALIVE_KEY,
+        action: "system_keepalive",
+        identifier_hash: "researchos-cron",
+        count: 1,
+        reset_at: fallbackResetAt,
+        updated_at: touchedAt,
+      },
+      { onConflict: "key" },
+    );
+
+    if (!fallbackWrite.error) {
+      return ok({
+        status: "ok",
+        mode: "fallback_internal_upsert",
+        touchedAt,
+        migrationRequired: "supabase/migrations/0008_system_keepalive.sql",
+      });
+    }
+
+    const fallbackRead = await supabase
       .from("research_projects")
       .select("id", { count: "exact", head: true });
 
-    if (fallback.error) {
-      throw new Error(fallback.error.message);
+    if (fallbackRead.error) {
+      throw new Error(
+        `${fallbackWrite.error.message}; ${fallbackRead.error.message}`,
+      );
     }
 
     return ok({

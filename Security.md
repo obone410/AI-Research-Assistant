@@ -36,6 +36,7 @@ The recruiter account in the README is a shared demo user. It should be used onl
 - Research exports are generated server-side from authorized workspace data.
 - Security headers are configured in `next.config.ts`, with stricter production CSP behavior than local development.
 - The keepalive route uses the service-role client only on the server and accepts Vercel Cron bearer authorization through `CRON_SECRET`.
+- If migration `0008` is not applied yet, the keepalive route writes one internal fallback heartbeat row to the existing rate-limit table instead of user workspace tables.
 - `.env*` files are ignored by Git.
 - `.env.example` contains placeholders only.
 
