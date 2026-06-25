@@ -145,6 +145,7 @@ NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_ANON_KEY=
 SUPABASE_SERVICE_ROLE_KEY=
 SUPABASE_SECRET_KEY=
+CRON_SECRET=
 
 OPENAI_API_KEY=
 OPENAI_CHAT_MODEL=gpt-4o-mini
@@ -157,7 +158,9 @@ AI_PROVIDER=anthropic
 DEMO_MODE=false
 ```
 
-Apply Supabase migrations in `supabase/migrations` from `0001` through `0007`.
+Apply Supabase migrations in `supabase/migrations` from `0001` through `0008`.
+
+`CRON_SECRET` is used by the scheduled Supabase keepalive route. Set it in Vercel as an encrypted environment variable before production deploys.
 
 </details>
 
